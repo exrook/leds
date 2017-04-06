@@ -1,3 +1,4 @@
+#![feature(trace_macros)]
 #[macro_use]
 extern crate cpp;
 #[macro_use]
@@ -37,6 +38,36 @@ mod tests {
     //}
 }
 
+macro_rules! c_rustfn {
+    ($fn_name:ident $data_name:ident $data_ptr_name:ident [$(let $p_name:ident : $p_type:ty = $var:ident ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
+        struct dfs {
+           $($p_name : $p_type),+ 
+        }
+        extern "C" fn cfjds( mut envv: *mut dfs, $($c_name:$c_type),* ) {
+            not_null!(envv);
+            let mut envvv = unsafe { &mut *envv };
+            $(let ref mut $p_name = envvv.$p_name;)*
+            $body
+        }
+        let $fn_name = cfjds as *mut fn(*mut dfs, $($c_type),*);
+        let mut $data_name = dfs {
+            $($p_name : $var),+
+        };
+        let mut $data_ptr_name: *mut dfs = &mut $data_name;
+    }
+}
+macro_rules! not_null {
+    ($($var:ident),+) => {
+        $(
+            assert!(!$var.is_null());
+        )+
+    };
+    ($($var:ident : $lul:ty),+) => {
+        not_null!($var)
+    }
+}
+
+
 mod vamp_host {
     use std::ffi::{OsStr,OsString};
     use std::ffi::{CStr,CString};
@@ -64,51 +95,38 @@ mod vamp_host {
     impl PluginLoader {
         pub fn list_plugins(&mut self) -> Vec<PluginKey> {
             let mut plugin_list = Vec::new();
+            c_rustfn!(conv_to_rust rust_data data_ptr [let vec: Vec<OsString> = plugin_list] (whaddup: *const c_char) {
+                let cstr = unsafe {CStr::from_ptr(whaddup)};
+                let bytes = OsStr::from_bytes(cstr.to_bytes());
+                vec.push(OsString::from(bytes));
+            });
+            let mut loader = self.loader;
             unsafe {
-                enum CxxVec {}
-                let mut loader = self.loader;
-                let mut size: i32 = 0;
-                let mut v = cpp!([mut loader as "PluginLoader*", mut size as "int32_t"] -> *mut CxxVec as "std::vector<std::string>* " {
-                    auto v = new std::vector<std::string>(loader->listPlugins());
-                    size = v->size();
-                    return v;
-                });
-                println!("Vector: {:#?}", v);
-                let mut str_vec: Vec<*const c_char> = Vec::with_capacity(size as usize);
-                let str_vec_ptr = str_vec.as_mut_ptr();
-                let len = cpp!([mut v as "std::vector<std::string>* ", size as "int32_t", str_vec_ptr as "char**"] {
-                    for (int i = 0; i < size; i++) {
-                        str_vec_ptr[i] = (*v)[i].c_str();
+                cpp!([mut loader as "PluginLoader*", conv_to_rust as "void*", mut data_ptr as "void*"] {
+                    auto v = loader->listPlugins();
+                    for (int i = 0; i < v.size(); i++) {
+                        ((void (*) (void*, const char *))conv_to_rust)(data_ptr,v[i].c_str()); // rust-cpp doesn't support function pointers in args it seems
                     }
                 });
-                str_vec.set_len(size as usize);
-                for s in str_vec {
-                    let cstr = CStr::from_ptr(s);
-                    let bytes = OsStr::from_bytes(cstr.to_bytes());
-                    plugin_list.push(OsString::from(bytes));
-                }
-                cpp!([v as "std::vector<std::string>* "] {
-                    delete v;
-                });
             }
-            return plugin_list;
+            return rust_data.vec;
         }
-        fn list_plugins_in(&mut self, libraryNames: Vec<String>) -> Vec<PluginKey> {
+        pub fn list_plugins_in(&mut self, libraryNames: Vec<String>) -> Vec<PluginKey> {
             unimplemented!();
         }
-        fn list_plugins_not_in(&mut self, libraryNames: Vec<String>) -> Vec<PluginKey> {
+        pub fn list_plugins_not_in(&mut self, libraryNames: Vec<String>) -> Vec<PluginKey> {
             unimplemented!();
         }
-        fn load_plugin(&mut self, key: PluginKey, inputSampleRate: f32, adapterFlags: i32) -> Plugin {
+        pub fn load_plugin(&mut self, key: PluginKey, inputSampleRate: f32, adapterFlags: i32) -> Plugin {
             unimplemented!();
         }
-        fn compose_plugin_key(&mut self, libraryName: String, identifier: String) -> PluginKey {
+        pub fn compose_plugin_key(&mut self, libraryName: String, identifier: String) -> PluginKey {
             unimplemented!();
         }
-        fn get_plugin_category(&mut self, plugin: PluginKey) -> PluginCategoryHierarchy {
+        pub fn get_plugin_category(&mut self, plugin: PluginKey) -> PluginCategoryHierarchy {
             unimplemented!();
         }
-        fn get_library_path_for_plugin(&mut self, plugin: PluginKey) -> String {
+        pub fn get_library_path_for_plugin(&mut self, plugin: PluginKey) -> String {
             unimplemented!();
         }
         /// Only call this once, if you have to call it more than once u need to re-evaluate life
