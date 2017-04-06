@@ -43,20 +43,20 @@ mod tests {
 
 macro_rules! cppp {
     ($fn_name:ident $data_name:ident $data_ptr_name:ident ($cxx_obj_name:ident : $cxx_obj_type:expr => $cxx_obj_ptr:expr) [$(let $p_name:ident : $p_type:ty = $var:expr ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
-        struct dfs {
+        struct FnData {
            $($p_name : $p_type),+ 
         }
-        extern "C" fn cfjds( mut envv: *mut dfs, $($c_name:$c_type),* ) {
-            not_null!(envv);
-            let mut envvv = unsafe { &mut *envv };
-            $(let ref mut $p_name = envvv.$p_name;)*
+        extern "C" fn rust_fn( data: *mut FnData, $($c_name:$c_type),* ) {
+            not_null!(data);
+            let mut dataref = unsafe { &mut *data };
+            $(let ref mut $p_name = dataref.$p_name;)*
             $body
         }
-        let $fn_name = cfjds as *mut fn(*mut dfs, $($c_type),*);
-        let mut $data_name = dfs {
+        let $fn_name = rust_fn as *mut fn(*mut FnData, $($c_type),*);
+        let mut $data_name = FnData {
             $($p_name : $var),+
         };
-        let mut $data_ptr_name: *mut dfs = &mut $data_name;
+        let mut $data_ptr_name: *mut FnData = &mut $data_name;
         //cpp!([mut 
     }
 }
@@ -91,10 +91,8 @@ macro_rules! not_null {
 }
 
 
-mod vamp_host {
-    use std::ffi::{OsStr,OsString};
+pub mod vamp_host {
     use std::ffi::{CStr,CString};
-    use std::os::unix::ffi::OsStrExt;
     use std::os::raw::c_char;
 
     #[test]
@@ -115,6 +113,15 @@ mod vamp_host {
         let out = pl.compose_plugin_key(CString::new("Foo").unwrap(),CString::new("Bar").unwrap());
         println!("{:#?}", out);
         assert!(out == CString::new("foo:Bar").unwrap());
+    }
+    #[test]
+    fn test_get_plugin_category() {
+        let mut pl = unsafe {PluginLoader::get_instance()};
+        assert!(!pl.loader.is_null());
+        println!("{:#?}", pl);
+        println!("Oh hey it's");
+        let out = pl.get_plugin_category(CString::new("vamp-example-plugins:fixedtempo").unwrap());
+        println!("{:#?}", out);
     }
     #[test]
     fn test_get_library_path_for_plugin() {
@@ -188,24 +195,23 @@ mod vamp_host {
         /* pub fn list_plugins_not_in(&mut self, libraryNames: Vec<String>) -> Vec<PluginKey> {
             unimplemented!();
         } */
-        /// TODO: ADD LIFETIME BOUNDS TO PLUGIN
-        pub fn load_plugin(&mut self, key: PluginKey, inputSampleRate: f32, adapterFlags: i32) -> Option<Plugin> {
+        pub fn load_plugin(&mut self, key: PluginKey, input_sample_rate: f32, adapter_flags: i32) -> Option<Plugin> {
             let key_ptr = key.as_ptr();
             let mut loader = self.loader;
-            match unsafe { cpp!([mut loader as "PluginLoader*", key_ptr as "char*", inputSampleRate as "float", adapterFlags as "int"] -> *mut CxxPlugin as "Plugin*" {
+            match unsafe { cpp!([mut loader as "PluginLoader*", key_ptr as "char*", input_sample_rate as "float", adapter_flags as "int"] -> *mut CxxPlugin as "Plugin*" {
                     auto plugkey = std::string(key_ptr);
-                    return loader->loadPlugin(plugkey, inputSampleRate, adapterFlags); // MEMS
+                    return loader->loadPlugin(plugkey, input_sample_rate, adapter_flags); // MEMS
                 })} {
                 a if !a.is_null() => Some(Plugin{ plugin: a }),
                 _ => None
             }
         }
-        pub fn compose_plugin_key(&mut self, libraryName: CString, identifier: CString) -> PluginKey {
+        pub fn compose_plugin_key(&mut self, library_name: CString, identifier: CString) -> PluginKey {
             cppp!(conv_to_rust rust_data data_ptr (loader: "PluginLoader*" => self.loader) [let out_key: Option<CString> = None] (whaddup: *const c_char) {
                 let cstr = unsafe {CStr::from_ptr(whaddup)};
                 *out_key = Some(CString::from(cstr));
             });
-            let (lib_ptr, ident_ptr) = (libraryName.as_ptr(), identifier.as_ptr());
+            let (lib_ptr, ident_ptr) = (library_name.as_ptr(), identifier.as_ptr());
             let mut loader = self.loader;
             unsafe {
                 cpp!([mut loader as "PluginLoader*", conv_to_rust as "void*", mut data_ptr as "void*", lib_ptr as "char*", ident_ptr as "char*"] {
@@ -227,14 +233,13 @@ mod vamp_host {
             unsafe {
                 cpp!([mut loader as "PluginLoader*", conv_to_rust as "void*", mut data_ptr as "void*", plug_ptr as "char*"] {
                     auto plug = std::string(plug_ptr);
-                    auto v = loader->listPlugins();
+                    auto v = loader->getPluginCategory(plug);
                     for (int i = 0; i < v.size(); i++) {
                         ((void (*) (void*, const char *))conv_to_rust)(data_ptr,v[i].c_str()); // rust-cpp doesn't support function pointers in args it seems
                     }
                 });
             }
-            return rust_data.vec;
-            unimplemented!();
+            rust_data.vec
         }
         pub fn get_library_path_for_plugin(&mut self, plugin: PluginKey) -> CString {
             cppp!(conv_to_rust rust_data data_ptr (loader: "PluginLoader*" => self.loader) [let out_path: Option<CString> = None] (whaddup: *const c_char) {
