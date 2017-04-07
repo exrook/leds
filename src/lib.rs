@@ -1,4 +1,6 @@
 #![feature(trace_macros)]
+#[link(name = "vamp-hostsdk")]
+extern {}
 #[macro_use]
 extern crate cpp;
 #[macro_use]

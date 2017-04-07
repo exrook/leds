@@ -6,7 +6,7 @@ extern crate cpp_build;
 fn main() {
     ////////////// BINDGEN ////////////////
     // Tell cargo to tell rustc to link with the system's vamp library
-    println!("cargo:rustc-link-lib=vamp-hostsdk");
+    //println!("cargo:rustc-link-lib=vamp-hostsdk");
     
 //    let bindings = bindgen::Builder::default()
 //        //.no_unstable_rust()
