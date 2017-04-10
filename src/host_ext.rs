@@ -9,22 +9,35 @@ cpp!{{
 
 use std::ffi::{CStr,CString};
 use std::os::raw::c_char;
+use std::sync::{Arc,Mutex};
 use plugin::Plugin as Plugin;
+use ::cxx_util::{CxxString,CxxVector,CxxInnerVector};
+
+static mut HOSTEXT: &'static Option<Arc<Mutex<Box<PluginLoader>>>> = &None;
 
 #[test]
 fn test_get_instance() {
     let pl = unsafe {PluginLoader::get_instance()};
-    println!("Got plugin loader: {:#?}", pl as *const _);
+    println!("Waiting for lock");
+    let pl = pl.lock().unwrap();
+    println!("Got lock");
+    println!("Got plugin loader: {:p}", *pl);
 }
 #[test]
 fn test_list_plugins() {
-    let mut pl = unsafe {PluginLoader::get_instance()};
+    let pl = unsafe {PluginLoader::get_instance()};
+    println!("Waiting for lock");
+    let mut pl = pl.lock().unwrap();
+    println!("Got lock test_list_plugins");
     let out = pl.list_plugins();
     println!("PluginList: {:#?}", out);
 }
 #[test]
 fn test_load_plugin() {
-    let mut pl = unsafe {PluginLoader::get_instance()};
+    let pl = unsafe {PluginLoader::get_instance()};
+    println!("Waiting for lock");
+    let mut pl = pl.lock().unwrap();
+    println!("Got lock test_load_plugin");
     let out = pl.load_plugin(CString::new("vamp-example-plugins:fixedtempo").unwrap(), 44100.0, 0x03).unwrap();
     let raw_ptr = Box::into_raw(out);
     println!("Loaded Plugin: {:#?}", raw_ptr);
@@ -32,20 +45,29 @@ fn test_load_plugin() {
 }
 #[test]
 fn test_compose_plugin_key() {
-    let mut pl = unsafe {PluginLoader::get_instance()};
+    let pl = unsafe {PluginLoader::get_instance()};
+    println!("Waiting for lock");
+    let mut pl = pl.lock().unwrap();
+    println!("Got lock compose_plugin_key");
     let out = pl.compose_plugin_key(CString::new("Foo").unwrap(),CString::new("Bar").unwrap());
     println!("PluginKey: {:#?}", out);
     assert!(out == CString::new("foo:Bar").unwrap());
 }
 #[test]
 fn test_get_plugin_category() {
-    let mut pl = unsafe {PluginLoader::get_instance()};
+    let pl = unsafe {PluginLoader::get_instance()};
+    println!("Waiting for lock");
+    let mut pl = pl.lock().unwrap();
+    println!("Got lock get_plugin_category");
     let out = pl.get_plugin_category(CString::new("vamp-example-plugins:fixedtempo").unwrap());
     println!("PluginCategories: {:#?}", out);
 }
 #[test]
 fn test_get_library_path_for_plugin() {
-    let mut pl = unsafe {PluginLoader::get_instance()};
+    let pl = unsafe {PluginLoader::get_instance()};
+    println!("Waiting for lock");
+    let mut pl = pl.lock().unwrap();
+    println!("Got lock get_library_path_for_plugin");
     let out = pl.get_library_path_for_plugin(CString::new("vamp-example-plugins:fixedtempo").unwrap());
     println!("{:#?}", out);
 }
@@ -55,20 +77,15 @@ type PluginCategoryHierarchy = Vec<CString>;
 type PluginKey = CString;
 impl PluginLoader {
     pub fn list_plugins(&mut self) -> Vec<PluginKey> {
-        cppp!(conv_to_rust rust_data data_ptr (loader: "PluginLoader*" => self.loader) [let vec: Vec<CString> = Vec::new()] (c_str: *const c_char) {
-            let cstr = unsafe {CStr::from_ptr(c_str)};
-            vec.push(CString::from(cstr));
-        });
         let mut loader = self as *mut _;
-        unsafe {
-            cpp!([mut loader as "PluginLoader*", conv_to_rust as "void*", mut data_ptr as "void*"] {
-                auto v = loader->listPlugins();
-                for (int i = 0; i < v.size(); i++) {
-                    ((void (*) (void*, const char *))conv_to_rust)(data_ptr,v[i].c_str()); // rust-cpp doesn't support function pointers in args it seems
-                }
-            });
-        }
-        return rust_data.vec;
+        let cxxvec = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
+            auto vv = new std::vector<std::string>();
+            *vv = loader->listPlugins();
+            return vv;
+        }))};
+        let out = cxxvec.to_vec();
+        unsafe{cxxvec.delete()};
+        return out;
     }
     pub fn load_plugin(&mut self, key: PluginKey, input_sample_rate: f32, adapter_flags: i32) -> Option<Box<Plugin>> {
         let key_ptr = key.as_ptr();
@@ -99,46 +116,49 @@ impl PluginLoader {
         rust_data.out_key.unwrap()
     }
     pub fn get_plugin_category(&mut self, plugin: PluginKey) -> PluginCategoryHierarchy {
-        cppp!(conv_to_rust rust_data data_ptr (loader: "PluginLoader*" => self.loader) [let vec: Vec<CString> = Vec::new()] (c_str: *const c_char) {
-            let cstr = unsafe {CStr::from_ptr(c_str)};
-            vec.push(CString::from(cstr));
-        });
         let plug_ptr = plugin.as_ptr();
         let mut loader = self as *mut _;
-        unsafe {
-            cpp!([mut loader as "PluginLoader*", conv_to_rust as "void*", mut data_ptr as "void*", plug_ptr as "char*"] {
-                auto plug = std::string(plug_ptr);
-                auto v = loader->getPluginCategory(plug);
-                for (int i = 0; i < v.size(); i++) {
-                    ((void (*) (void*, const char *))conv_to_rust)(data_ptr,v[i].c_str()); // rust-cpp doesn't support function pointers in args it seems
-                }
-            });
-        }
-        rust_data.vec
+        let cxxvec = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*", plug_ptr as "char*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
+            auto plug = std::string(plug_ptr);
+            auto v = new std::vector<std::string>();
+            *v = loader->getPluginCategory(plug);
+            return v;
+        }))};
+        let out = cxxvec.to_vec();
+        unsafe { cxxvec.delete() };
+        return out;
     }
     pub fn get_library_path_for_plugin(&mut self, plugin: PluginKey) -> CString {
-        cppp!(conv_to_rust rust_data data_ptr (loader: "PluginLoader*" => self.loader) [let out_path: Option<CString> = None] (c_str: *const c_char) {
-            let cstr = unsafe {CStr::from_ptr(c_str)};
-            *out_path = Some(CString::from(cstr));
-        });
         let plug_ptr = plugin.as_ptr();
         let mut loader = self as *mut _;
-        unsafe {
-            cpp!([mut loader as "PluginLoader*", conv_to_rust as "void*", mut data_ptr as "void*", plug_ptr as "char*"] {
+        let s = unsafe { cpp!([mut loader as "PluginLoader*", plug_ptr as "char*"] -> *mut CxxString as "std::string*" {
                 auto plug = std::string(plug_ptr);
-                auto v = loader->getLibraryPathForPlugin(plug);
-                ((void (*) (void*, const char *))conv_to_rust)(data_ptr,v.c_str()); // rust-cpp doesn't support function pointers in args it seems
-            });
-        }
-        rust_data.out_path.unwrap()
+                auto out = new std::string();
+                *out = loader->getLibraryPathForPlugin(plug);
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     /// Only call this once, if you have to call it more than once u need to re-evaluate life
-    pub unsafe fn get_instance() -> &'static mut PluginLoader {
-        let load = cpp!( [] -> *mut PluginLoader as "PluginLoader*" {
-            return PluginLoader::getInstance();
-        });
-        not_null!(load);
-        &mut *load
+    pub unsafe fn get_instance() -> Arc<Mutex<Box<PluginLoader>>> {
+        match HOSTEXT {
+            &None => {
+                let load = cpp!( [] -> *mut PluginLoader as "PluginLoader*" {
+                    return PluginLoader::getInstance();
+                });
+                not_null!(load);
+                let tmp = Box::new(Some(Arc::new(Mutex::new(Box::from_raw(load)))));
+                HOSTEXT = &mut *Box::into_raw(tmp);
+                return PluginLoader::get_instance();
+            }
+            &Some(ref a) => {
+                return a.clone();
+            }
+        }
     }
 }
 // cpp!([] {

@@ -64,3 +64,4 @@ macro_rules! not_null {
 
 pub mod host_ext;
 pub mod plugin;
+pub mod cxx_util;
