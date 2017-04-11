@@ -24,6 +24,12 @@ pub struct OutputDescriptor {
     pub has_duration: bool,
 }
 
+impl CxxOutputDescriptor {
+    pub fn to_rust(&self) -> OutputDescriptor {
+        OutputDescriptor::from(self)
+    }
+}
+
 impl OutputDescriptor {
     pub fn from(ptr: *const CxxOutputDescriptor) -> Self {
         let identifier = unsafe { CStr::from_ptr(cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> *const c_char as "const char*" {

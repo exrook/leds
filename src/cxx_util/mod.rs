@@ -4,6 +4,7 @@ use std::os::raw::c_char;
 use std::ops::Index;
 
 use ::plugin::{CxxFeature,Feature};
+use ::plugin::{CxxOutputDescriptor,OutputDescriptor};
 pub enum CxxString { }
 
 #[test]
@@ -135,6 +136,42 @@ impl<'a> Index<usize> for CxxVector<'a,CxxFeature> {
         return unsafe {& *ptr};
     }
 }
+
+impl<'a> CxxVector<'a,CxxOutputDescriptor> {
+    pub fn size(&self) -> usize {
+        let vector = & (*(self._inner)) as *const _;
+        unsafe {cpp!([vector as "std::vector<Vamp::Plugin::OutputDescriptor>*"] -> usize as "size_t" {
+            return vector->size();
+        })}
+    }
+    pub fn to_vec(&self) -> Vec<OutputDescriptor> {
+        let len = self.size();
+        let mut vec = Vec::new();
+        for i in 0..len {
+            vec.push(self[i].to_rust());
+        }
+        vec
+    }
+    pub unsafe fn delete(self) {
+        let cxxvec = self.into_raw();
+        unsafe {cpp!([cxxvec as "std::vector<Vamp::Plugin::OutputDescriptor>*"] {
+            delete cxxvec;
+        })};
+    }
+}
+
+impl<'a> Index<usize> for CxxVector<'a,CxxOutputDescriptor> {
+    type Output = CxxOutputDescriptor;
+    fn index(&self, index: usize) -> &Self::Output {
+        let vector = & (*(self._inner)) as *const _;
+        let ptr = unsafe {cpp!([vector as "std::vector<Vamp::Plugin::OutputDescriptor>*", index as "size_t"] -> *const CxxOutputDescriptor as "const Vamp::Plugin::OutputDescriptor*" {
+            return &(*vector)[index];
+        })};
+        not_null!(ptr);
+        return unsafe {& *ptr};
+    }
+}
+
 impl<'a> CxxVector<'a,f32> {
     pub fn size(&self) -> usize {
         let vector = & (*(self._inner)) as *const _;

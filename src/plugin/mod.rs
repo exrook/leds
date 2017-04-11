@@ -1,12 +1,15 @@
 use std::ffi::CString;
 use std::collections::BTreeMap;
+
+use ::cxx_util::{CxxVector,CxxInnerVector,CxxString};
+
 mod output_descriptor;
 mod feature;
 mod parameter_descriptor;
 pub use self::feature::Feature;
 pub use self::feature::CxxFeature;
-pub use self::output_descriptor::OutputDescriptor;
-pub use self::parameter_descriptor::ParameterDescriptor;
+pub use self::output_descriptor::{CxxOutputDescriptor,OutputDescriptor};
+pub use self::parameter_descriptor::{CxxParameterDescriptor,ParameterDescriptor};
 type FeatureList = Vec<Feature>;
 type FeatureSet = BTreeMap<i32, FeatureList>;
 type ProgramList = Vec<CString>;
@@ -71,7 +74,15 @@ impl Plugin {
         })}
     }
     pub fn get_output_descriptors(&self) -> Vec<OutputDescriptor> {
-        unimplemented!();
+        let plugin = self as *const _;
+        let tmp: CxxVector<CxxOutputDescriptor> = unsafe { CxxVector::from(cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<Plugin::OutputDescriptor>*" {
+            auto out = new std::vector<Plugin::OutputDescriptor>();
+            *out = plugin->getOutputDescriptors();
+            return out;
+        }))};
+        let v = tmp.to_vec();
+        unsafe {tmp.delete()};
+        v
     }
     pub fn process(&mut self) -> FeatureSet {
         unimplemented!();
@@ -80,7 +91,17 @@ impl Plugin {
         unimplemented!();
     }
     pub fn get_type(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getType();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn get_vamp_api_version(&self) -> u32 {
         let plugin = self as *const _;
@@ -89,19 +110,69 @@ impl Plugin {
         })}
     }
     pub fn get_identifier(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getIdentifier();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn get_name(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getName();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn get_description(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getDescription();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn get_maker(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getMaker();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn get_copyright(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getCopyright();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn get_plugin_version(&self) -> u32 {
         let mut plugin = self as *const _;
@@ -122,7 +193,17 @@ impl Plugin {
         unimplemented!();
     }
     pub fn get_current_program(&self) -> CString {
-        unimplemented!();
+        let plugin = self as *const _;
+        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+                auto out = new std::string();
+                *out = plugin->getCurrentProgram();
+                return out;
+            }) };
+        not_null!(s);
+        let s = unsafe { &mut *s };
+        let out = s.to_c_string();
+        unsafe {s.delete()};
+        return out;
     }
     pub fn select_program(&self, program: CString) {
         unimplemented!();
