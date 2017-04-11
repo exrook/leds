@@ -34,7 +34,7 @@ macro_rules! cppp {
 }
 
 macro_rules! c_rustfn {
-    ($fn_name:ident $data_name:ident $data_ptr_name:ident [$(let $p_name:ident : $p_type:ty = $var:ident ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
+    ($fn_name:ident $data_name:ident $data_ptr_name:ident [$(let $p_name:ident : $p_type:ty = $var:expr ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
         struct dfs {
            $($p_name : $p_type),+
         }
