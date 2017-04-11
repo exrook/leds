@@ -15,6 +15,12 @@ pub struct ParameterDescriptor {
     value_names: Option<Vec<CString>>,
 }
 
+impl CxxParameterDescriptor {
+    pub fn to_rust(&self) -> ParameterDescriptor {
+        ParameterDescriptor::from(self)
+    }
+}
+
 impl ParameterDescriptor { 
     pub fn from(ptr: *const CxxParameterDescriptor) -> Self {
         let identifier = unsafe { CStr::from_ptr(cpp!([ptr as "Vamp::PluginBase::ParameterDescriptor*"] -> *const c_char as "const char*" {

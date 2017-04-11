@@ -2,12 +2,14 @@ use std::ffi::CString;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use ::cxx_util::{CxxInnerVector,CxxVector,CxxString};
+#[derive(Debug)]
 pub enum SampleType {
     OneSamplePerStep,
     FixedSampleRate(f32),
     VariableSampleRate(f32)
 }
 pub enum CxxOutputDescriptor {}
+#[derive(Debug)]
 pub struct OutputDescriptor {
     pub identifier: CString,
     pub name: CString,

@@ -6,6 +6,7 @@ use std::ops::Index;
 
 use ::plugin::{CxxFeature,Feature};
 use ::plugin::{CxxOutputDescriptor,OutputDescriptor};
+use ::plugin::{CxxParameterDescriptor,ParameterDescriptor};
 pub enum CxxString { }
 
 #[test]
@@ -166,6 +167,41 @@ impl<'a> Index<usize> for CxxVector<'a,CxxOutputDescriptor> {
     fn index(&self, index: usize) -> &Self::Output {
         let vector = & (*(self._inner)) as *const _;
         let ptr = unsafe {cpp!([vector as "std::vector<Vamp::Plugin::OutputDescriptor>*", index as "size_t"] -> *const CxxOutputDescriptor as "const Vamp::Plugin::OutputDescriptor*" {
+            return &(*vector)[index];
+        })};
+        not_null!(ptr);
+        return unsafe {& *ptr};
+    }
+}
+
+impl<'a> CxxVector<'a,CxxParameterDescriptor> {
+    pub fn size(&self) -> usize {
+        let vector = & (*(self._inner)) as *const _;
+        unsafe {cpp!([vector as "std::vector<Vamp::Plugin::ParameterDescriptor>*"] -> usize as "size_t" {
+            return vector->size();
+        })}
+    }
+    pub fn to_vec(&self) -> Vec<ParameterDescriptor> {
+        let len = self.size();
+        let mut vec = Vec::new();
+        for i in 0..len {
+            vec.push(self[i].to_rust());
+        }
+        vec
+    }
+    pub unsafe fn delete(self) {
+        let cxxvec = self.into_raw();
+        unsafe {cpp!([cxxvec as "std::vector<Vamp::Plugin::ParameterDescriptor>*"] {
+            delete cxxvec;
+        })};
+    }
+}
+
+impl<'a> Index<usize> for CxxVector<'a,CxxParameterDescriptor> {
+    type Output = CxxParameterDescriptor;
+    fn index(&self, index: usize) -> &Self::Output {
+        let vector = & (*(self._inner)) as *const _;
+        let ptr = unsafe {cpp!([vector as "std::vector<Vamp::Plugin::ParameterDescriptor>*", index as "size_t"] -> *const CxxParameterDescriptor as "const Vamp::Plugin::ParameterDescriptor*" {
             return &(*vector)[index];
         })};
         not_null!(ptr);

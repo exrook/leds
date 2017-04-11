@@ -21,6 +21,22 @@ impl RealTime {
         }
     }
 }
+impl CxxRealTime {
+    pub fn from(feat: &RealTime) -> Box<Self> {
+        let (sec, nsec) = (feat.sec, feat.nsec);
+        unsafe {Box::from_raw(cpp!([sec as "int", nsec as "int"] -> *mut CxxRealTime as "Vamp::RealTime*" {
+            return new Vamp::RealTime(sec, nsec);
+        }))}
+    }
+}
+impl Drop for CxxRealTime {
+    fn drop(&mut self) {
+        let ptr = self as *mut _;
+        unsafe {cpp!([ptr as "Vamp::RealTime*"] {
+            delete ptr;
+        })};
+    }
+}
 
 pub enum CxxFeature {}
 pub struct Feature {
@@ -46,7 +62,7 @@ impl Feature {
                 let tstamp_ptr = unsafe { cpp!([ptr as "Vamp::Plugin::Feature*"] -> *const CxxRealTime as "const Vamp::RealTime*" {
                     return &(ptr->timestamp);
                 })};
-                unimplemented!();
+                Some(RealTime::from(tstamp_ptr))
             }
             false => {
                 None
@@ -60,7 +76,7 @@ impl Feature {
                 let duration_ptr = unsafe { cpp!([ptr as "Vamp::Plugin::Feature*"] -> *const CxxRealTime as "const Vamp::RealTime*" {
                     return &(ptr->duration);
                 })};
-                unimplemented!();
+                Some(RealTime::from(duration_ptr))
             }
             false => {
                 None

@@ -7,12 +7,7 @@ extern crate cpp;
 extern crate cpp_macros;
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
-}
-
+mod tests; 
 macro_rules! cppp {
     ($fn_name:ident $data_name:ident $data_ptr_name:ident ($cxx_obj_name:ident : $cxx_obj_type:expr => $cxx_obj_ptr:expr) [$(let $p_name:ident : $p_type:ty = $var:expr ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
         struct FnData {
