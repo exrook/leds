@@ -39,5 +39,5 @@ mod host_ext;
 mod plugin;
 mod cxx_util;
 
-pub use host_ext::PluginLoader;
-pub use plugin::{Plugin,Feature,OutputDescriptor,ParameterDescriptor,RealTime,InputDomain,SampleType};
+pub use host_ext::{PluginLoader,PluginKey,PluginCategoryHierarchy};
+pub use plugin::{Plugin,Feature,FeatureList,FeatureSet,OutputDescriptor,OutputList,ParameterDescriptor,ParameterList,RealTime,InputDomain,SampleType};

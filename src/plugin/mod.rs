@@ -10,10 +10,10 @@ pub use self::feature::{Feature,RealTime};
 pub use self::feature::{CxxFeature,CxxRealTime};
 pub use self::output_descriptor::{CxxOutputDescriptor,OutputDescriptor,SampleType};
 pub use self::parameter_descriptor::{CxxParameterDescriptor,ParameterDescriptor};
-type FeatureList = Vec<Feature>;
-type FeatureSet = BTreeMap<i32, FeatureList>;
-type ProgramList = Vec<CString>;
-type ParameterList = Vec<ParameterDescriptor>;
+pub type FeatureList = Vec<Feature>;
+pub type FeatureSet = BTreeMap<i32, FeatureList>;
+pub type OutputList = Vec<OutputDescriptor>;
+pub type ParameterList = Vec<ParameterDescriptor>;
 pub enum Plugin {}
 #[derive(Debug)]
 pub enum InputDomain {
@@ -102,7 +102,7 @@ impl Plugin {
     /// Get the outputs of this plugin.
     ///
     /// An output's index in this list is used as its numeric index when looking it up in the FeatureSet returned from the process() call.
-    pub fn get_output_descriptors(&self) -> Vec<OutputDescriptor> {
+    pub fn get_output_descriptors(&self) -> OutputList {
         let plugin = self as *const _;
         let tmp: CxxVector<CxxOutputDescriptor> = unsafe { CxxVector::from(cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<Plugin::OutputDescriptor>*" {
             auto out = new std::vector<Plugin::OutputDescriptor>();
@@ -310,7 +310,7 @@ impl Plugin {
     /// A program is a named shorthand for a set of parameter values; changing the program may cause the plugin to alter the values of its published parameters (and/or non-public internal processing parameters). The host should re-read the plugin's parameter values after setting a new program.
     ///
     /// The programs must have unique names.
-    pub fn get_programs(&self) -> ProgramList {
+    pub fn get_programs(&self) -> Vec<CString> {
         let plugin = self as *const _;
         let cxxvec: CxxVector<CxxString> = unsafe {CxxVector::from(cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
             auto v = new std::vector<std::string>();

@@ -16,9 +16,9 @@ use ::cxx_util::{CxxString,CxxVector,CxxInnerVector};
 static mut HOSTEXT: &'static Option<Arc<Mutex<Box<PluginLoader>>>> = &None;
 
 pub enum PluginLoader {}
-type PluginCategoryHierarchy = Vec<CString>;
+pub type PluginCategoryHierarchy = Vec<CString>;
 
-type PluginKey = CString;
+pub type PluginKey = CString;
 impl PluginLoader {
     /// True if the returned results for this output are known to have a duration field.
     pub fn list_plugins(&mut self) -> Vec<PluginKey> {
