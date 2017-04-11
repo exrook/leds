@@ -78,7 +78,7 @@ type PluginKey = CString;
 impl PluginLoader {
     pub fn list_plugins(&mut self) -> Vec<PluginKey> {
         let mut loader = self as *mut _;
-        let cxxvec = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
+        let cxxvec: CxxVector<CxxString> = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
             auto vv = new std::vector<std::string>();
             *vv = loader->listPlugins();
             return vv;
@@ -118,7 +118,7 @@ impl PluginLoader {
     pub fn get_plugin_category(&mut self, plugin: PluginKey) -> PluginCategoryHierarchy {
         let plug_ptr = plugin.as_ptr();
         let mut loader = self as *mut _;
-        let cxxvec = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*", plug_ptr as "char*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
+        let cxxvec: CxxVector<CxxString> = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*", plug_ptr as "char*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
             auto plug = std::string(plug_ptr);
             auto v = new std::vector<std::string>();
             *v = loader->getPluginCategory(plug);

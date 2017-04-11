@@ -1,6 +1,6 @@
 use std::ffi::{CStr,CString};
 use std::os::raw::c_char;
-use ::cxx_util::{CxxInnerVector,CxxVector};
+use ::cxx_util::{CxxInnerVector,CxxVector,CxxString};
 
 pub enum CxxParameterDescriptor {}
 pub struct ParameterDescriptor {
@@ -53,10 +53,12 @@ impl ParameterDescriptor {
         };
         let value_names = match is_quantized {
             true => {
-                let tmp = unsafe { CxxVector::from(cpp!([ptr as "Vamp::PluginBase::ParameterDescriptor*"] -> *mut CxxInnerVector as "const std::vector<std::string>*" {
+                let tmp: CxxVector<CxxString> = unsafe { CxxVector::from(cpp!([ptr as "Vamp::PluginBase::ParameterDescriptor*"] -> *mut CxxInnerVector as "const std::vector<std::string>*" {
                     return &(ptr->valueNames);
                 }))};
-                Some(tmp.to_vec())
+                let v = tmp.to_vec();
+                tmp.into_raw();
+                Some(v)
             }
             false => {
                 None

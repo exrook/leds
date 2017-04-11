@@ -1,4 +1,7 @@
 use std::ffi::CString;
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use ::cxx_util::{CxxInnerVector,CxxVector,CxxString};
 pub enum SampleType {
     OneSamplePerStep,
     FixedSampleRate(f32),
@@ -16,13 +19,13 @@ pub struct OutputDescriptor {
     /// (Min,Max) possible range of values if present
     pub extents: Option<(f32,f32)>,
     /// If present, resolution values are quantized to
-    pub quantizeStep: Option<f32>,
+    pub quantize_step: Option<f32>,
     pub sample_type: SampleType,
     pub has_duration: bool,
 }
 
-impl CxxOutputDescriptor {
-    pub fn to_output_descriptor(&self) -> OutputDescriptor {
+impl OutputDescriptor {
+    pub fn from(ptr: *const CxxOutputDescriptor) -> Self {
         let identifier = unsafe { CStr::from_ptr(cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> *const c_char as "const char*" {
             return ptr->identifier.c_str();
         }))}.to_owned();
@@ -35,7 +38,7 @@ impl CxxOutputDescriptor {
         let unit = unsafe { CStr::from_ptr(cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> *const c_char as "const char*" {
             return ptr->unit.c_str();
         }))}.to_owned();
-        let has_fixed_bin_count = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> f32 as "float" {
+        let has_fixed_bin_count = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> bool as "bool" {
             return ptr->hasFixedBinCount;
         })};
         let bin_count = match has_fixed_bin_count {
@@ -45,16 +48,21 @@ impl CxxOutputDescriptor {
                 })})
             }
             false => None
-        }
+        };
         let bin_names = match has_fixed_bin_count {
             true => {
-                unimplemented!();
-                Some(unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> usize as "size_t" {
-                    return ptr->binCount;
-                })})
+                let cxx_vec: CxxVector<CxxString> = unsafe { CxxVector::from(cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> *mut CxxInnerVector as "const std::vector<std::string>*" {
+                    return &(ptr->binNames);
+                }))};
+                let vec = cxx_vec.to_vec();
+                cxx_vec.into_raw();
+                Some(vec)
+                //Some(unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> usize as "size_t" {
+                //    return ptr->binCount;
+                //})})
             }
             false => None
-        }
+        };
         let has_known_extents = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> bool as "bool" {
             return ptr->hasKnownExtents;
         })};
@@ -65,7 +73,7 @@ impl CxxOutputDescriptor {
                 })})
             }
             false => None
-        }
+        };
         let max_value = match has_known_extents {
             true => {
                 Some(unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> f32 as "float" {
@@ -73,7 +81,11 @@ impl CxxOutputDescriptor {
                 })})
             }
             false => None
-        }
+        };
+        let extents = match (min_value,max_value) {
+            (Some(min),Some(max)) => Some((min,max)),
+            _ => None
+        };
         let is_quantized = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> bool as "bool" {
             return ptr->isQuantized;
         })};
@@ -87,32 +99,44 @@ impl CxxOutputDescriptor {
                 None
             }
         };
-        let value_names = match is_quantized {
-            true => {
-                let tmp = unsafe { CxxVector::from(cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> *mut CxxInnerVector as "const std::vector<std::string>*" {
-                    return &(ptr->valueNames);
-                }))};
-                Some(tmp.to_vec())
+        let sample_type = match unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> i32 as "int" {
+                auto en = ptr->sampleType; // MEMS
+                switch (en) {
+                    case Vamp::Plugin::OutputDescriptor::SampleType::OneSamplePerStep:
+                        return 0;
+                    case Vamp::Plugin::OutputDescriptor::SampleType::FixedSampleRate:
+                        return 1;
+                    case Vamp::Plugin::OutputDescriptor::SampleType::VariableSampleRate:
+                        return 2;
+                }
+            })} {
+            0 => SampleType::OneSamplePerStep,
+            m if ((m == 2)||(m == 1)) => {
+                let sample_rate = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> f32 as "float" {
+                    return ptr->sampleRate;
+                })};
+                match m {
+                    1 => SampleType::FixedSampleRate(sample_rate),
+                    2 => SampleType::VariableSampleRate(sample_rate),
+                    _ => unreachable!()
+                }
             }
-            false => {
-                None
-            }
+            _ => unreachable!()
         };
-        let is_quantized = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> bool as "bool" {
-            return ptr->isQuantized;
+        let has_duration = unsafe { cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> bool as "bool" {
+            return ptr->hasDuration;
         })};
-        return ParameterDescriptor {
+        return OutputDescriptor {
             identifier: identifier,
             name: name,
             description: description,
             unit: unit,
-            min_value: min_value,
-            max_value: max_value,
-            default_value: default_value,
+            bin_count: bin_count,
+            bin_names: bin_names,
+            extents: extents,
             quantize_step: quantize_step,
-            value_names: value_names,
+            sample_type: sample_type,
+            has_duration: has_duration
         }
-    }
-        unimplemented!();
     }
 }

@@ -4,6 +4,7 @@ mod output_descriptor;
 mod feature;
 mod parameter_descriptor;
 pub use self::feature::Feature;
+pub use self::feature::CxxFeature;
 pub use self::output_descriptor::OutputDescriptor;
 pub use self::parameter_descriptor::ParameterDescriptor;
 type FeatureList = Vec<Feature>;
