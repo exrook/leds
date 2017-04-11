@@ -15,62 +15,6 @@ use ::cxx_util::{CxxString,CxxVector,CxxInnerVector};
 
 static mut HOSTEXT: &'static Option<Arc<Mutex<Box<PluginLoader>>>> = &None;
 
-#[test]
-fn test_get_instance() {
-    let pl = unsafe {PluginLoader::get_instance()};
-    println!("Waiting for lock");
-    let pl = pl.lock().unwrap();
-    println!("Got lock");
-    println!("Got plugin loader: {:p}", *pl);
-}
-#[test]
-fn test_list_plugins() {
-    let pl = unsafe {PluginLoader::get_instance()};
-    println!("Waiting for lock");
-    let mut pl = pl.lock().unwrap();
-    println!("Got lock test_list_plugins");
-    let out = pl.list_plugins();
-    println!("PluginList: {:#?}", out);
-}
-#[test]
-fn test_load_plugin() {
-    let pl = unsafe {PluginLoader::get_instance()};
-    println!("Waiting for lock");
-    let mut pl = pl.lock().unwrap();
-    println!("Got lock test_load_plugin");
-    let out = pl.load_plugin(CString::new("vamp-example-plugins:fixedtempo").unwrap(), 44100.0, 0x03).unwrap();
-    let raw_ptr = Box::into_raw(out);
-    println!("Loaded Plugin: {:#?}", raw_ptr);
-    let out = unsafe {Box::from_raw(raw_ptr)};
-}
-#[test]
-fn test_compose_plugin_key() {
-    let pl = unsafe {PluginLoader::get_instance()};
-    println!("Waiting for lock");
-    let mut pl = pl.lock().unwrap();
-    println!("Got lock compose_plugin_key");
-    let out = pl.compose_plugin_key(CString::new("Foo").unwrap(),CString::new("Bar").unwrap());
-    println!("PluginKey: {:#?}", out);
-    assert!(out == CString::new("foo:Bar").unwrap());
-}
-#[test]
-fn test_get_plugin_category() {
-    let pl = unsafe {PluginLoader::get_instance()};
-    println!("Waiting for lock");
-    let mut pl = pl.lock().unwrap();
-    println!("Got lock get_plugin_category");
-    let out = pl.get_plugin_category(CString::new("vamp-example-plugins:fixedtempo").unwrap());
-    println!("PluginCategories: {:#?}", out);
-}
-#[test]
-fn test_get_library_path_for_plugin() {
-    let pl = unsafe {PluginLoader::get_instance()};
-    println!("Waiting for lock");
-    let mut pl = pl.lock().unwrap();
-    println!("Got lock get_library_path_for_plugin");
-    let out = pl.get_library_path_for_plugin(CString::new("vamp-example-plugins:fixedtempo").unwrap());
-    println!("{:#?}", out);
-}
 pub enum PluginLoader {}
 type PluginCategoryHierarchy = Vec<CString>;
 
@@ -104,8 +48,9 @@ impl PluginLoader {
             _ => None
         }
     }
+    /// Given a Vamp plugin library name and plugin identifier, return the corresponding plugin key in a form suitable for passing in to loadPlugin().
     pub fn compose_plugin_key(&mut self, library_name: CString, identifier: CString) -> PluginKey {
-        cppp!(conv_to_rust rust_data data_ptr (loader: "PluginLoader*" => self.loader) [let out_key: Option<CString> = None] (c_str: *const c_char) {
+        c_rustfn!(conv_to_rust rust_data data_ptr [let out_key: Option<CString> = None] (c_str: *const c_char) {
             let cstr = unsafe {CStr::from_ptr(c_str)};
             *out_key = Some(CString::from(cstr));
         });
@@ -121,6 +66,9 @@ impl PluginLoader {
         }
         rust_data.out_key.unwrap()
     }
+    /// Return the category hierarchy for a Vamp plugin, given its identifying key.
+    ///
+    /// If the plugin has no category information, return an empty hierarchy.
     pub fn get_plugin_category(&mut self, plugin: PluginKey) -> PluginCategoryHierarchy {
         let plug_ptr = plugin.as_ptr();
         let mut loader = self as *mut _;
@@ -134,6 +82,7 @@ impl PluginLoader {
         unsafe { cxxvec.delete() };
         return out;
     }
+    /// Return the file path of the dynamic library from which the given plugin will be loaded (if available).
     pub fn get_library_path_for_plugin(&mut self, plugin: PluginKey) -> CString {
         let plug_ptr = plugin.as_ptr();
         let mut loader = self as *mut _;
@@ -149,6 +98,8 @@ impl PluginLoader {
         unsafe {s.delete()};
         return out;
     }
+    /// Returns a reference to the PluginLoader singleton, wrapped in a mutex. Try not to use this
+    /// from multiple threads, even though there is a mutex, as the C++ doesn't seem to support it
     pub unsafe fn get_instance() -> Arc<Mutex<Box<PluginLoader>>> {
         match HOSTEXT {
             &None => {

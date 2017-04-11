@@ -6,10 +6,8 @@ extern crate cpp;
 #[macro_use]
 extern crate cpp_macros;
 
-#[cfg(test)]
-mod tests; 
-macro_rules! cppp {
-    ($fn_name:ident $data_name:ident $data_ptr_name:ident ($cxx_obj_name:ident : $cxx_obj_type:expr => $cxx_obj_ptr:expr) [$(let $p_name:ident : $p_type:ty = $var:expr ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
+macro_rules! c_rustfn {
+    ($fn_name:ident $data_name:ident $data_ptr_name:ident [$(let $p_name:ident : $p_type:ty = $var:expr ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
         struct FnData {
            $($p_name : $p_type),+
         }
@@ -24,26 +22,6 @@ macro_rules! cppp {
             $($p_name : $var),+
         };
         let mut $data_ptr_name: *mut FnData = &mut $data_name;
-        //cpp!([mut
-    }
-}
-
-macro_rules! c_rustfn {
-    ($fn_name:ident $data_name:ident $data_ptr_name:ident [$(let $p_name:ident : $p_type:ty = $var:expr ),+] ($($c_name:ident : $c_type:ty),*) $body:block) => {
-        struct dfs {
-           $($p_name : $p_type),+
-        }
-        extern "C" fn cfjds( mut envv: *mut dfs, $($c_name:$c_type),* ) {
-            not_null!(envv);
-            let mut envvv = unsafe { &mut *envv };
-            $(let ref mut $p_name = envvv.$p_name;)*
-            $body
-        }
-        let $fn_name = cfjds as *mut fn(*mut dfs, $($c_type),*);
-        let mut $data_name = dfs {
-            $($p_name : $var),+
-        };
-        let mut $data_ptr_name: *mut dfs = &mut $data_name;
     }
 }
 macro_rules! not_null {
@@ -52,14 +30,14 @@ macro_rules! not_null {
             assert!(!$var.is_null());
         )+
     };
-    ($($var:ident : $lul:ty),+) => {
-        not_null!($var)
-    }
 }
+
+#[cfg(test)]
+mod tests; 
 
 mod host_ext;
 mod plugin;
 mod cxx_util;
-//pub use plugin::Plugin;
+
 pub use host_ext::PluginLoader;
 pub use plugin::{Plugin,Feature,OutputDescriptor,ParameterDescriptor,RealTime,InputDomain,SampleType};

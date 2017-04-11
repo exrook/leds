@@ -48,7 +48,7 @@ impl Plugin {
     ///
     /// If this is FrequencyDomain, the host will carry out a windowed FFT of size equal to the negotiated block size on the data before passing the frequency bin data in to process(). The input data for the FFT will be rotated so as to place the origin in the centre of the block. The plugin does not get to choose the window type -- the host will either let the user do so, or will use a Hanning window.
     pub fn get_input_domain(&self) -> InputDomain {
-        let mut plugin = self as *const _;
+        let plugin = self as *const _;
         match unsafe { cpp!([plugin as "Plugin*"] -> i32 as "int" {
                 auto en = plugin->getInputDomain(); // MEMS
                 switch (en) {
@@ -134,7 +134,7 @@ impl Plugin {
             *out = plugin->process(c_input_bufs_ptr, *tstamp_ptr);
             return out;
         }))};
-        let tstamp_box = unsafe{Box::from_raw(tstamp_ptr)};
+        unsafe{Box::from_raw(tstamp_ptr)};
         let m = tmp.to_map();
         unsafe {tmp.delete()};
         m
@@ -266,7 +266,7 @@ impl Plugin {
     }
     /// Get the version number of the plugin.
     pub fn get_plugin_version(&self) -> u32 {
-        let mut plugin = self as *const _;
+        let plugin = self as *const _;
         unsafe { cpp!([plugin as "Plugin*"] -> u32 as "uint" {
             return plugin->getPluginVersion(); // MEMS
         })}
@@ -341,10 +341,10 @@ impl Plugin {
     pub fn select_program(&mut self, program: CString) {
         let prog_ptr = program.as_ptr();
         let mut plugin = self as *mut _;
-        let s = unsafe { cpp!([mut plugin as "Plugin*", prog_ptr as "char*"] {
+        unsafe { cpp!([mut plugin as "Plugin*", prog_ptr as "char*"] {
             auto prog = std::string(prog_ptr);
             plugin->selectProgram(prog);
-        }) };
+        })};
     }
 }
 
