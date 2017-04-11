@@ -2,12 +2,22 @@ use std::ffi::{CStr,CString};
 use std::os::raw::c_char;
 use ::cxx_util::{CxxInnerVector,CxxVector};
 pub enum CxxRealTime {}
+#[derive(Debug)]
 pub struct RealTime {
+    /// The seconds component of the time value
     pub sec: i32,
+    /// The nanoseconds component of the time value
     pub nsec: i32
 }
 
 impl RealTime {
+    pub fn new(sec: i32, nsec: i32) -> Self {
+        Self {
+            sec: sec,
+            nsec: nsec,
+        }
+    }
+    /// Create a rust RealTime object from a C++ reference
     pub fn from(ptr: *const CxxRealTime) -> Self {
         let sec = unsafe { cpp!([ptr as "Vamp::RealTime*"] -> i32 as "int" {
             return ptr->sec;
@@ -39,6 +49,7 @@ impl Drop for CxxRealTime {
 }
 
 pub enum CxxFeature {}
+#[derive(Debug)]
 pub struct Feature {
     /// Timestamp of the output feature, if present.
     /// 

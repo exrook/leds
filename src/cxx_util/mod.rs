@@ -260,6 +260,7 @@ impl<'a> CxxMap<'a,i32,CxxVector<'a,CxxFeature>> {
     //}
     pub fn to_map(&self) -> BTreeMap<i32,Vec<Feature>> {
         let map = & (*(self._inner)) as *const _;
+        not_null!(map);
         c_rustfn!(process_pair data data_ptr [let map:BTreeMap<i32,Vec<Feature>> = (BTreeMap::new())] (key: i32, val: *mut CxxInnerVector) {
             not_null!(val);
             let cxxvec: CxxVector<CxxFeature> = unsafe {CxxVector::from(val)};
@@ -268,9 +269,9 @@ impl<'a> CxxMap<'a,i32,CxxVector<'a,CxxFeature>> {
             map.insert(key,vec);
             println!("TEST");
         });
-        unsafe{cpp!([map as "std::map<int,std::vector<Vamp::Plugin::Feature>>*",process_pair as "void*",data_ptr as "void*"] {
+        unsafe{cpp!([map as "std::map<int,std::vector<Vamp::Plugin::Feature>>*",process_pair as "void*",mut data_ptr as "void*"] {
             for (auto element: *map) {
-                ((void (*)(int,std::vector<Vamp::Plugin::Feature>))process_pair)(element.first,element.second);
+                ((void (*)(void*,int,std::vector<Vamp::Plugin::Feature>))process_pair)(data_ptr,element.first,element.second);
             }
         })};
         return data.map;

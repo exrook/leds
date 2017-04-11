@@ -12,30 +12,34 @@ pub enum CxxOutputDescriptor {}
 #[derive(Debug)]
 pub struct OutputDescriptor {
     /// The name of the output, in computer-usable form.
-    /// 
-    /// Should be reasonably short and without whitespace or punctuation, using the characters [a-zA-Z0-9_-] only. Example: "zero_crossing_count" 
+    ///
+    /// Should be reasonably short and without whitespace or punctuation, using the characters [a-zA-Z0-9_-] only. Example: "zero_crossing_count"
     pub identifier: CString,
     /// The human-readable name of the output.
-    /// 
-    /// Example: "Zero Crossing Counts" 
+    ///
+    /// Example: "Zero Crossing Counts"
     pub name: CString,
     /// A human-readable short text describing the output.
-    /// 
-    /// May be empty if the name has said it all already. Example: "The number of zero crossing points per processing block" 
+    ///
+    /// May be empty if the name has said it all already. Example: "The number of zero crossing points per processing block"
     pub description: CString,
-    /// The unit of the output, in human-readable form. 
+    /// The unit of the output, in human-readable form.
     pub unit: CString,
     /// The number of values per result of the output, present if there is a fixed bin size
-    /// 
-    /// Undefined if hasFixedBinCount is false. If this is zero, the output is point data (i.e. only the time of each output is of interest, the value list will be empty). 
+    ///
+    /// Undefined if hasFixedBinCount is false. If this is zero, the output is point data (i.e. only the time of each output is of interest, the value list will be empty).
     pub bin_count: Option<usize>,
-    /// The (human-readable) names of each of the bins, if appropriate. 
+    /// The (human-readable) names of each of the bins, if appropriate.
     pub bin_names: Option<Vec<CString>>,
     /// (Min,Max) True if the results in each output bin fall within a fixed numeric range (minimum and maximum values).
     pub extents: Option<(f32,f32)>,
-    /// If present, resolution values are quantized to
+    /// Quantization resolution of the output values (e.g. 1.0 if they are all integers), if present.
     pub quantize_step: Option<f32>,
+    /// Positioning in time of the output results, and sample rate of the output results, as samples per second, if present.
+    ///
+    /// If sampleType is VariableSampleRate and this value is non-zero, then it may be used to calculate a resolution for the output (i.e. the "duration" of each sample, in time, will be 1/sampleRate seconds). It's recommended to set this to zero if that behaviour is not desired.
     pub sample_type: SampleType,
+    /// True if the returned results for this output are known to have a duration field.
     pub has_duration: bool,
 }
 
@@ -46,6 +50,7 @@ impl CxxOutputDescriptor {
 }
 
 impl OutputDescriptor {
+    /// Create a rust OutputDescriptor object from a C++ reference
     pub fn from(ptr: *const CxxOutputDescriptor) -> Self {
         let identifier = unsafe { CStr::from_ptr(cpp!([ptr as "Vamp::Plugin::OutputDescriptor*"] -> *const c_char as "const char*" {
             return ptr->identifier.c_str();

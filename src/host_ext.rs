@@ -76,6 +76,7 @@ type PluginCategoryHierarchy = Vec<CString>;
 
 type PluginKey = CString;
 impl PluginLoader {
+    /// True if the returned results for this output are known to have a duration field.
     pub fn list_plugins(&mut self) -> Vec<PluginKey> {
         let mut loader = self as *mut _;
         let cxxvec: CxxVector<CxxString> = unsafe {CxxVector::from(cpp!([mut loader as "PluginLoader*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
@@ -87,6 +88,11 @@ impl PluginLoader {
         unsafe{cxxvec.delete()};
         return out;
     }
+    /// Load a Vamp plugin, given its identifying key.
+    ///
+    /// If the plugin could not be loaded, returns 0.
+    ///
+    /// The returned plugin should be deleted (using the standard C++ delete keyword) after use.
     pub fn load_plugin(&mut self, key: PluginKey, input_sample_rate: f32, adapter_flags: i32) -> Option<Box<Plugin>> {
         let key_ptr = key.as_ptr();
         let mut loader = self as *mut _;
@@ -143,7 +149,6 @@ impl PluginLoader {
         unsafe {s.delete()};
         return out;
     }
-    /// Only call this once, if you have to call it more than once u need to re-evaluate life
     pub unsafe fn get_instance() -> Arc<Mutex<Box<PluginLoader>>> {
         match HOSTEXT {
             &None => {

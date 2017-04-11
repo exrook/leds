@@ -57,6 +57,9 @@ macro_rules! not_null {
     }
 }
 
-pub mod host_ext;
-pub mod plugin;
-pub mod cxx_util;
+mod host_ext;
+mod plugin;
+mod cxx_util;
+//pub use plugin::Plugin;
+pub use host_ext::PluginLoader;
+pub use plugin::{Plugin,Feature,OutputDescriptor,ParameterDescriptor,RealTime,InputDomain,SampleType};
