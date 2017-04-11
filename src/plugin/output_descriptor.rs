@@ -11,14 +11,27 @@ pub enum SampleType {
 pub enum CxxOutputDescriptor {}
 #[derive(Debug)]
 pub struct OutputDescriptor {
+    /// The name of the output, in computer-usable form.
+    /// 
+    /// Should be reasonably short and without whitespace or punctuation, using the characters [a-zA-Z0-9_-] only. Example: "zero_crossing_count" 
     pub identifier: CString,
+    /// The human-readable name of the output.
+    /// 
+    /// Example: "Zero Crossing Counts" 
     pub name: CString,
+    /// A human-readable short text describing the output.
+    /// 
+    /// May be empty if the name has said it all already. Example: "The number of zero crossing points per processing block" 
     pub description: CString,
+    /// The unit of the output, in human-readable form. 
     pub unit: CString,
-    /// Present if there is a fixed bin size, if zero, output is point data
+    /// The number of values per result of the output, present if there is a fixed bin size
+    /// 
+    /// Undefined if hasFixedBinCount is false. If this is zero, the output is point data (i.e. only the time of each output is of interest, the value list will be empty). 
     pub bin_count: Option<usize>,
+    /// The (human-readable) names of each of the bins, if appropriate. 
     pub bin_names: Option<Vec<CString>>,
-    /// (Min,Max) possible range of values if present
+    /// (Min,Max) True if the results in each output bin fall within a fixed numeric range (minimum and maximum values).
     pub extents: Option<(f32,f32)>,
     /// If present, resolution values are quantized to
     pub quantize_step: Option<f32>,

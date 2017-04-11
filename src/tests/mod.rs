@@ -57,7 +57,7 @@ mod plugin {
     fn test_get_output_descriptors() {
         let pl = get_plugin();
         let descriptors = pl.get_output_descriptors();
-        println!("{:#?}", descriptors);
+        println!("Output descriptors: {:#?}", descriptors);
     }
     #[test]
     fn test_get_type() {
@@ -131,5 +131,46 @@ mod plugin {
             panic!("Version does not match");
         }
     }
-
+    #[test]
+    fn test_get_parameter_descriptors() {
+        let pl = get_plugin();
+        let descriptors = pl.get_parameter_descriptors();
+        println!("Parameter descriptors: {:#?}", descriptors);
+    }
+    #[test]
+    fn test_get_parameter() {
+        let pl = get_plugin();
+        let param = pl.get_parameter(CString::new("minbpm").unwrap());
+        println!("Parameter: {:#?}", param);
+        if param != 50.0 {
+            panic!("Parameter does not match");
+        }
+    }
+    #[test]
+    fn test_set_parameter() {
+        let mut pl = get_plugin();
+        pl.set_parameter(CString::new("maxbpm").unwrap(), 20.0);
+        let param = pl.get_parameter(CString::new("maxbpm").unwrap());
+        println!("Set parameter: {:#?}", param);
+        if param != 20.0 {
+            panic!("Set parameter does not match");
+        }
+    }
+    #[test]
+    fn test_get_programs() {
+        let pl = get_plugin();
+        let progs = pl.get_programs();
+        println!("Programs: {:#?}", progs);
+    }
+    #[test]
+    fn test_get_current_program() {
+        let pl = get_plugin();
+        let prog = pl.get_current_program();
+        println!("Programs: {:#?}", prog);
+    }
+    #[test]
+    fn test_select_program() {
+        let mut pl = get_plugin();
+        pl.select_program(CString::new("").unwrap());
+    }
 }

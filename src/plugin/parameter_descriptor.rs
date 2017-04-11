@@ -3,16 +3,38 @@ use std::os::raw::c_char;
 use ::cxx_util::{CxxInnerVector,CxxVector,CxxString};
 
 pub enum CxxParameterDescriptor {}
+#[derive(Debug)]
 pub struct ParameterDescriptor {
-    identifier: CString,
-    name: CString,
-    description: CString,
-    unit: CString,
-    min_value: f32,
-    max_value: f32,
-    default_value: f32,
-    quantize_step: Option<f32>,
-    value_names: Option<Vec<CString>>,
+    /// The name of the parameter, in computer-usable form.
+    /// 
+    /// Should be reasonably short, and may only contain the characters [a-zA-Z0-9_-].
+    pub identifier: CString,
+    /// The human-readable name of the parameter.
+    pub name: CString,
+    /// A human-readable short text describing the parameter.
+    /// 
+    /// May be empty if the name has said it all already.
+    pub description: CString,
+    /// The unit of the parameter, in human-readable form.
+    pub unit: CString,
+    /// The minimum value of the parameter.
+    pub min_value: f32,
+    /// The maximum value of the parameter.
+    pub max_value: f32,
+    /// The default value of the parameter.
+    /// 
+    /// The plugin should ensure that parameters have this value on initialisation (i.e. the
+    /// host is not required to explicitly set parameters if it wants to use their default values).
+    pub default_value: f32,
+    /// Quantization resolution of the parameter values (e.g. 1.0 if they are all integers), if
+    /// present.
+    pub quantize_step: Option<f32>,
+    /// Names for the quantized values.
+    /// 
+    /// If quantize_step is present, this may either be empty or contain one string for each of the quantize steps from minValue up to maxValue inclusive.
+    /// 
+    /// If these names are provided, they should be shown to the user in preference to the values themselves. The user may never see the actual numeric values unless they are also encoded in the names. 
+    pub value_names: Option<Vec<CString>>,
 }
 
 impl CxxParameterDescriptor {
@@ -22,6 +44,7 @@ impl CxxParameterDescriptor {
 }
 
 impl ParameterDescriptor { 
+    /// Create a rust ParameterDescriptor object from a C++ reference
     pub fn from(ptr: *const CxxParameterDescriptor) -> Self {
         let identifier = unsafe { CStr::from_ptr(cpp!([ptr as "Vamp::PluginBase::ParameterDescriptor*"] -> *const c_char as "const char*" {
             return ptr->identifier.c_str();

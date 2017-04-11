@@ -3,8 +3,8 @@ use std::os::raw::c_char;
 use ::cxx_util::{CxxInnerVector,CxxVector};
 pub enum CxxRealTime {}
 pub struct RealTime {
-    sec: i32,
-    nsec: i32
+    pub sec: i32,
+    pub nsec: i32
 }
 
 impl RealTime {
@@ -40,10 +40,20 @@ impl Drop for CxxRealTime {
 
 pub enum CxxFeature {}
 pub struct Feature {
-    timestamp: Option<RealTime>,
-    duration: Option<RealTime>,
-    values: Vec<f32>,
-    label: CString
+    /// Timestamp of the output feature, if present.
+    /// 
+    /// This is mandatory if the output has VariableSampleRate or if the output has FixedSampleRate and hasTimestamp is true, and unused otherwise. 
+    pub timestamp: Option<RealTime>,
+    /// Duration of the output feature, if present.
+    /// 
+    /// This is mandatory if the output has VariableSampleRate, can be present with FixedSampleRate, and unused otherwise. 
+    pub duration: Option<RealTime>,
+    /// Results for a single sample of this feature.
+    /// 
+    /// If the output hasFixedBinCount, there must be the same number of values as the output's binCount count. 
+    pub values: Vec<f32>,
+    /// Label for the sample of this feature. 
+    pub label: CString
 }
 
 impl CxxFeature {
@@ -53,6 +63,7 @@ impl CxxFeature {
 }
 
 impl Feature { 
+    /// Create a rust Feature object from a C++ reference
     pub fn from(ptr: *const CxxFeature) -> Self {
         let has_timestamp = unsafe { cpp!([ptr as "Vamp::Plugin::Feature*"] -> bool as "bool" {
             return ptr->hasTimestamp;
