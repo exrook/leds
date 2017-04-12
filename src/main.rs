@@ -23,7 +23,7 @@ enum Effect {
 }
 
 fn main() {
-    let mut port = serial::open("/dev/ttyACM0").unwrap();
+    let mut port = serial::open("/dev/ttyACM1").unwrap();
     port.reconfigure(&|settings| {
         try!(settings.set_baud_rate(serial::BaudOther(230400)));
         settings.set_char_size(serial::Bits8);
@@ -84,8 +84,8 @@ fn main() {
     set_effect(
         &mut port,
         Pixel { 
-            red: 0,
-            green: 255,
+            red: 8,
+            green: 0,
             blue: 0,
         },
         Effect::Constant

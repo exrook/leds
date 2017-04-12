@@ -6,6 +6,7 @@ use std::io::prelude::*;
 use serial::prelude::*;
 use std::time::Duration;
 use std::thread::sleep;
+use std::ffi::OsStr;
 
 use std::f64::consts::PI;
 
@@ -19,11 +20,13 @@ pub struct Pixel {
 #[derive(Debug)]
 pub enum Effect {
     Constant,
-    Flash(u8)
+    Flash(u8),
+    SetPix(u8),
+    Width(u8)
 }
 
-pub fn setup() -> serial::SystemPort {
-    let mut port = serial::open("/dev/ttyACM0").unwrap();
+pub fn setup<T: AsRef<OsStr> + ?Sized>(port: &T) -> serial::SystemPort {
+    let mut port = serial::open(port).unwrap();
     port.reconfigure(&|settings| {
         try!(settings.set_baud_rate(serial::BaudOther(230400)));
         settings.set_char_size(serial::Bits8);
@@ -90,6 +93,14 @@ pub fn set_effect<T: SerialPort>(port: &mut T, color: Pixel, effect: Effect) -> 
         Effect::Flash(rate) => {
             try!(port.write_all(&vec!(1,rate)));
             println!("Writing: {:?}", &vec!(1,rate));
+        }
+        Effect::SetPix(num) => {
+            try!(port.write_all(&vec!(2,num)));
+            println!("Writing: {:?}", &vec!(2,num));
+        }
+        Effect::Width(width) => {
+            try!(port.write_all(&vec!(3,width)));
+            println!("Writing: {:?}", &vec!(3,width));
         }
     }
     try!(port.flush());
