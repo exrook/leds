@@ -1,0 +1,9 @@
+[package]
+name = "vamp"
+version = "0.1.0"
+authors = ["Jacob Hughes <exrook.j@gmail.com>"]
+
+[dependencies]
+portaudio = "0.7.0"
+vamp-host = { path = "../vamp-host" }
+set_neopixels = { path = "../set_neopixels" }
