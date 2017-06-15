@@ -1,178 +1,75 @@
-extern crate serial;
+extern crate set_neopixels;
+#[macro_use]
+extern crate clap;
 
-use std::io;
-
-use std::io::prelude::*;
-use serial::prelude::*;
 use std::time::Duration;
 use std::thread::sleep;
 
-use std::f64::consts::PI;
+use clap::{App,Arg};
 
-#[derive(Clone,Debug)]
-struct Pixel {
-    red: u8,
-    green: u8,
-    blue: u8,
-}
-
-#[derive(Debug)]
-enum Effect {
-    Constant,
-    Flash(u8)
-}
+use set_neopixels::{Pixel,Effect,AuxEffect,set_effect,setup};
 
 fn main() {
-    let mut port = serial::open("/dev/ttyACM1").unwrap();
-    port.reconfigure(&|settings| {
-        try!(settings.set_baud_rate(serial::BaudOther(230400)));
-        settings.set_char_size(serial::Bits8);
-        settings.set_parity(serial::ParityNone);
-        settings.set_stop_bits(serial::Stop1);
-        settings.set_flow_control(serial::FlowNone);
-        Ok(())
-    }).unwrap();;
-    port.set_dtr(false);
-    port.set_timeout(Duration::from_millis(1000));
-    println!("Timeout: {:#?}", port.timeout());
-    sleep(Duration::from_millis(2000));
-    //let mut buf = String::new();
-    //port.read_to_string(&mut buf).unwrap();
-    //println!("String: {}", buf);
-    //port.write(&vec!(255,255,255,255,108,101,100,122)).unwrap(); // write header
-    //port.write(&vec!(255,0,0,0)).unwrap();
-    //port.write(&vec!(0,255,0,0)).unwrap();
-    //port.write(&vec!(0,0,255,0)).unwrap();
-    //port.write(&vec!(0,255,0,0)).unwrap();
-    //port.write(&vec!(0,255,255,0)).unwrap();
-    //port.write(&vec!(0,0,255,255)).unwrap();
-    //port.flush().unwrap();
-    //let mut p = Vec::new();
-    //for i in 0..300 as u64 {
-    //   println!("creating pixel {}", i);
-    //   p.push(Pixel{
-    //       //red: (f64::cos(i as f64*(PI/30.0))*-127.0 + 128.0) as u8,
-    //       red: 0,
-    //       green: 0,
-    //       blue: 255,
-    //   });
-    //}
-    //println!("{}", p.len());
-    //set_pixels(&mut port, vec!(Pixel{red: 0,green: 255, blue: 0}));
-    //loop {
-    //    set_effect(
-    //        &mut port,
-    //        Pixel { 
-    //            red: 128,
-    //            green: 0,
-    //            blue: 0,
-    //        },
-    //        Effect::Constant
-    //    );
-    //    sleep(Duration::from_millis(3000));
-    //    set_effect(
-    //        &mut port,
-    //        Pixel { 
-    //            red: 255,
-    //            green: 255,
-    //            blue: 255,
-    //        },
-    //        Effect::Flash(100)
-    //    );
-    //    sleep(Duration::from_millis(3000));
-    //}
+    let matches = App::new("set_neopixels")
+        .arg(Arg::with_name("serial").value_name("port").required(true).takes_value(true).index(1))
+        .arg(Arg::with_name("color").number_of_values(3).required(true).takes_value(true).index(2))
+        .arg(Arg::with_name("aux-color").short("c").number_of_values(3).takes_value(true).required(false))
+        .arg(Arg::with_name("effect").short("e").takes_value(true).required(false)
+             .possible_values(&["Constant", "Flash", "SetPix", "Width", "DoubleWidth", "QuadWidth", "Edges"]))
+        .arg(Arg::with_name("aux-effect").short("a").takes_value(true).required(false)
+             .possible_values(&["None", "Offset", "FillLeft", "FillCenter", "FillRight", "FillEdges", "FillDouble"]))
+        .arg(Arg::with_name("param").short("p").takes_value(true).required(false).requires("effect"))
+        .arg(Arg::with_name("aux-param").short("q").takes_value(true).required(false).requires("aux-effect"))
+        .get_matches();
+    let port = matches.value_of("serial").unwrap();
+    let color = values_t!(matches, "color", u8).unwrap_or_else(|e| e.exit());
+    let aux_color = values_t!(matches, "aux-color", u8).ok().map(|x|Pixel{ red: x[0], green: x[1], blue: x[3] });
+    let effect = {
+        if matches.is_present("effect") {
+            let param = value_t!(matches,"param", u8).unwrap_or(5);
+            match value_t!(matches, "effect", String).unwrap_or_else(|e| e.exit()).as_ref() {
+                "Constant" => Effect::Constant,
+                "Flash" => Effect::Width(param),
+                "SetPix" => Effect::SetPix(param),
+                "Width" => Effect::Width(param),
+                "DoubleWidth" => Effect::DoubleWidth(param),
+                "QuadWidth" => Effect::QuadWidth(param),
+                "Edges" => Effect::Edges(param),
+                _ => panic!()
+            }
+        } else {
+            Effect::Constant
+        }
+    };
+    let aux_effect = {
+        if matches.is_present("aux-effect") {
+            let param = value_t!(matches,"aux-param", u8).unwrap_or(5);
+            match value_t!(matches, "aux-effect", String).unwrap_or_else(|e| e.exit()).as_ref() {
+                "None" => AuxEffect::None,
+                "Offset" => AuxEffect::Offset(param),
+                "FillLeft" => AuxEffect::FillLeft(param),
+                "FillCenter" => AuxEffect::FillCenter(param),
+                "FillRight" => AuxEffect::FillRight(param),
+                "FillEdges" => AuxEffect::FillEdges(param),
+                "FillDouble" => AuxEffect::FillDouble(param),
+                _ => panic!()
+            }
+        } else {
+            AuxEffect::None
+        }
+    };
+    let mut serial = setup(port);
+    sleep(Duration::from_secs(1));
     set_effect(
-        &mut port,
+        &mut serial,
         Pixel { 
-            red: 8,
-            green: 0,
-            blue: 0,
+            red: color[0],
+            green: color[1],
+            blue: color[2],
         },
-        Effect::Constant
-    );
-    let mut c = 0;
-    //loop {
-    //    println!("{:#?}",set_pixels3(&mut port, p.clone()));
-    //    for (i,px) in p.iter_mut().enumerate() {
-//  //          if i == c {
-//  //              px.red = 255;
-//  //          } else {
-//  //              px.red = 0;
-//  //          }
-    //        //px.red = ((px.red as u32 + 1)%128) as u8;
-    //        //px.red = ((px.red as i32 + 128)%255) as u8;
-    //        //px.red = (f64::cos(i as f64*(PI/30.0))*-127.0 + 128.0) as u8;
-    //        //i = i + 1.0;
-    //        //let (r,g,b) = (px.red,px.green,px.blue);
-    //        //if (px.red < 10) {
-    //        //    px.red = 128;
-    //        //    px.green = 0;
-    //        //}
-    //        //px.red = r/2;
-    //        //px.green = ((((128-r as i32)-(g as i32*2)).abs() % 255) as u8);
-    //    }
-    //    c = (c + 1)%300; // this isn't actually causing the shifting effect it seems
-    //    println!("{}", c);
-    //    //sleep(Duration::from_millis(000));
-    //}
-    //println!("{:#?}",set_pixels3(&mut port, p));
+        effect,
+        aux_color,
+        aux_effect
+    ).unwrap();
 }
 
-fn set_pixels<T: SerialPort>(port: &mut T, pixels: Vec<Pixel>) -> io::Result<()> {
-    let mut bytes: Vec<u8> = pixels.into_iter().flat_map(|p| {vec!(p.red,p.green,p.blue,0)}).collect();
-    {
-        let last = bytes.len()-1;
-        bytes[last] = 255;
-    }
-    try!(port.flush());
-    try!(port.write_all(&vec!(255,255,255,255,108,101,100,122)));
-    let mut resp = String::new();
-    try!(port.read_to_string(&mut resp));
-    println!("{}", resp);
-    try!(port.write_all(&bytes));
-    try!(port.flush());
-    Ok(())
-}
-fn set_pixels2<T: SerialPort>(port: &mut T, pixels: Vec<Pixel>) -> io::Result<()> {
-    let bytes: Vec<u8> = pixels.into_iter().enumerate().flat_map(|(i,p)| {vec!('c' as u8,p.red,p.green,p.blue,'l' as u8,i as u8)}).collect();
-    println!("{:#?}", bytes);
-    try!(port.flush());
-    try!(port.write_all(&bytes));
-    try!(port.write(&['a' as u8]));
-    try!(port.flush());
-    Ok(())
-}
-fn set_pixels3<T: SerialPort>(port: &mut T, pixels: Vec<Pixel>) -> io::Result<()> {
-    //let mut bytes: Vec<u8> = pixels.into_iter().flat_map(|p| {vec!(p.red,p.green,p.blue)}).collect();
-    //println!("Size: {}, Size/3: {}", bytes.len(), bytes.len()/3);
-    println!("Num pixels: {}", pixels.len());
-    try!(port.flush());
-    //let chunks = bytes.chunks(3);
-    //for (i,chunk) in chunks.enumerate() {
-    for (i,pixel) in pixels.iter().enumerate() {
-        //println!("Writing pixel {}", i);
-        //try!(port.write_all(&chunk));
-        try!(port.write_all(&vec!(pixel.red,pixel.green,pixel.blue)));
-        sleep(Duration::from_millis(10));
-        //sleep(Duration::new(0,300000));
-    }
-    Ok(())
-}
-
-fn set_effect<T: SerialPort>(port: &mut T, color: Pixel, effect: Effect) -> io::Result<()> {
-    println!("Setting effect {:#?}, color: {:?}", effect, color);
-    try!(port.write_all(&vec!(color.red,color.green,color.blue)));
-    println!("Writing: {:?}", &vec!(color.red,color.green,color.blue));
-    match effect {
-        Effect::Constant => {
-            try!(port.write_all(&vec!(0,0)));
-            println!("Writing: {:?}", &vec!(0,0));
-        }
-        Effect::Flash(rate) => {
-            try!(port.write_all(&vec!(1,rate)));
-            println!("Writing: {:?}", &vec!(1,rate));
-        }
-    }
-    try!(port.flush());
-    Ok(())
-}

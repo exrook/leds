@@ -17,12 +17,26 @@ pub struct Pixel {
     pub blue: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Effect {
     Constant,
     Flash(u8),
     SetPix(u8),
-    Width(u8)
+    Width(u8),
+    DoubleWidth(u8),
+    QuadWidth(u8),
+    Edges(u8)
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum AuxEffect {
+    None,
+    Offset(u8),
+    FillLeft(u8),
+    FillCenter(u8),
+    FillRight(u8),
+    FillEdges(u8),
+    FillDouble(u8),
 }
 
 pub fn setup<T: AsRef<OsStr> + ?Sized>(port: &T) -> serial::SystemPort {
@@ -81,28 +95,33 @@ pub fn set_pixels3<T: SerialPort>(port: &mut T, pixels: Vec<Pixel>) -> io::Resul
     Ok(())
 }
 
-pub fn set_effect<T: SerialPort>(port: &mut T, color: Pixel, effect: Effect) -> io::Result<()> {
+pub fn set_effect<T: SerialPort>(port: &mut T, color: Pixel, effect: Effect, color2: Option<Pixel>, aux_effect: AuxEffect ) -> io::Result<()> {
+    let mut bytes = Vec::new();
+    bytes.append(&mut vec!(color.red,color.green,color.blue));
+    bytes.append(&mut match effect {
+        Effect::Constant => vec!(0,0),
+        Effect::Flash(rate) => vec!(1,rate),
+        Effect::SetPix(num) => vec!(2,num),
+        Effect::Width(width) => vec!(3,width),
+        Effect::DoubleWidth(width) => vec!(4,width),
+        Effect::QuadWidth(width) => vec!(5,width),
+        Effect::Edges(width) => vec!(6,width),
+    });
+    bytes.append(&mut match color2 {
+        Some(color2) => vec!(color2.red,color2.green,color2.blue),
+        None => vec!(0,0,0),
+    });
+    bytes.append(&mut match aux_effect {
+        AuxEffect::None => vec!(0,0),
+        AuxEffect::Offset(amount) => vec!(1, amount),
+        AuxEffect::FillLeft(len) => vec!(2, len),
+        AuxEffect::FillCenter(len) => vec!(3, len),
+        AuxEffect::FillRight(len) => vec!(4, len),
+        AuxEffect::FillEdges(len) => vec!(5, len),
+        AuxEffect::FillDouble(len) => vec!(6, len),
+    });
     println!("Setting effect {:#?}, color: {:?}", effect, color);
-    try!(port.write_all(&vec!(color.red,color.green,color.blue)));
-    println!("Writing: {:?}", &vec!(color.red,color.green,color.blue));
-    match effect {
-        Effect::Constant => {
-            try!(port.write_all(&vec!(0,0)));
-            println!("Writing: {:?}", &vec!(0,0));
-        }
-        Effect::Flash(rate) => {
-            try!(port.write_all(&vec!(1,rate)));
-            println!("Writing: {:?}", &vec!(1,rate));
-        }
-        Effect::SetPix(num) => {
-            try!(port.write_all(&vec!(2,num)));
-            println!("Writing: {:?}", &vec!(2,num));
-        }
-        Effect::Width(width) => {
-            try!(port.write_all(&vec!(3,width)));
-            println!("Writing: {:?}", &vec!(3,width));
-        }
-    }
+    try!(port.write_all(&bytes));
     try!(port.flush());
     Ok(())
 }
