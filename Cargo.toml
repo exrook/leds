@@ -1,0 +1,11 @@
+[package]
+name = "multi_net"
+version = "0.1.0"
+authors = ["Jacob Hughes <j@jacobhughes.me>"]
+
+[dependencies]
+tokio-core = "0.1"
+futures = "0.1"
+atomic_box = "0.1"
+serde = "1"
+bincode = "0.8"
