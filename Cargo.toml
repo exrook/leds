@@ -8,4 +8,14 @@ tokio-core = "0.1"
 futures = "0.1"
 atomic_box = "0.1"
 serde = "1"
+serde_derive = "1"
 bincode = "0.8"
+lru-cache = "0.1.1"
+rand = "0.3"
+byteorder = "1.1"
+untrusted = "0.2"
+untrustended = "0.1"
+
+[replace]
+"futures:0.1.14" = {git = "https://github.com/exrook/futures-rs"}
+
