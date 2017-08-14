@@ -31,7 +31,3 @@ use futures::sync::mpsc;
 use futures::stream::MergedItem;
 use tokio_core::net::{UdpCodec, UdpSocket};
 use tokio_core::reactor::Handle;
-
-mod protocol;
-use protocol::{ServerCodec, IntoPacket, FromPacket};
-pub mod kv;
