@@ -6,16 +6,18 @@ authors = ["Jacob Hughes <j@jacobhughes.me>"]
 [dependencies]
 tokio-core = "0.1"
 futures = "0.1"
-atomic_box = "0.1"
+atomic_box = "0.1.1"
 serde = "1"
 serde_derive = "1"
 bincode = "0.8"
 lru-cache = "0.1.1"
 rand = "0.3"
 byteorder = "1.1"
-untrusted = "0.2"
+untrusted = "0.5"
 untrustended = "0.1"
+error-chain = "0.10"
+set_neopixels = { git = "ssh://git@git.jacobhughes.me/exrook/set_neopixels.git" }
 
 [replace]
 "futures:0.1.14" = {git = "https://github.com/exrook/futures-rs"}
-
+"atomic_box:0.1.1" = {git = "file:///home/jacob/code/rust/atomic_box/"}
