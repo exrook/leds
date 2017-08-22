@@ -2,6 +2,7 @@
 name = "set_neopixels"
 version = "0.1.0"
 dependencies = [
+ "atomic_box 0.1.0 (git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git)",
  "clap 2.23.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serial 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -10,6 +11,11 @@ dependencies = [
 name = "ansi_term"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "atomic_box"
+version = "0.1.0"
+source = "git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git#c85dcfd8fb3c2133a78e629dd077b4253571b18b"
 
 [[package]]
 name = "atty"
@@ -123,6 +129,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
 "checksum ansi_term 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "23ac7c30002a5accbf7e8987d0632fa6de155b7c3d39d0067317a391e00a2ef6"
+"checksum atomic_box 0.1.0 (git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git)" = "<none>"
 "checksum atty 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d912da0db7fa85514874458ca3651fe2cddace8d0b0505571dbdcd41ab490159"
 "checksum bitflags 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1370e9fc2a6ae53aea8b7a5110edbd08836ed87c88736dfabccade1c2b44bff4"
 "checksum clap 2.23.2 (registry+https://github.com/rust-lang/crates.io-index)" = "cbf1114886d7cde2d6448517161d7db8d681a9a1c09f7d210f0b0864e48195f6"

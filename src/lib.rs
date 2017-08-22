@@ -17,6 +17,16 @@ pub struct Pixel {
     pub blue: u8,
 }
 
+impl Pixel {
+    pub fn from_slice(s: &[u8]) -> Self {
+        Pixel {
+            red: s[0],
+            green: s[1],
+            blue: s[2]
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum Effect {
     Constant,
@@ -43,6 +53,7 @@ pub fn setup<T: AsRef<OsStr> + ?Sized>(port: &T) -> serial::SystemPort {
     let mut port = serial::open(port).unwrap();
     port.reconfigure(&|settings| {
         try!(settings.set_baud_rate(serial::BaudOther(230400)));
+        //try!(settings.set_baud_rate(serial::BaudOther(1000000)));
         settings.set_char_size(serial::Bits8);
         settings.set_parity(serial::ParityNone);
         settings.set_stop_bits(serial::Stop1);
@@ -93,6 +104,10 @@ pub fn set_pixels3<T: SerialPort>(port: &mut T, pixels: Vec<Pixel>) -> io::Resul
         //sleep(Duration::new(0,300000));
     }
     Ok(())
+}
+
+pub fn set_pixels4<T: SerialPort>(port: &mut T, pixels: &[Pixel]) -> io::Result<()> {
+    port.write_all(&pixels.into_iter().flat_map(|p|vec![p.red,p.green,p.blue]).collect::<Vec<u8>>())
 }
 
 pub fn set_effect<T: SerialPort>(port: &mut T, color: Pixel, effect: Effect, color2: Option<Pixel>, aux_effect: AuxEffect ) -> io::Result<()> {

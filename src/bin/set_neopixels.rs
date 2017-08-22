@@ -23,7 +23,7 @@ fn main() {
         .get_matches();
     let port = matches.value_of("serial").unwrap();
     let color = values_t!(matches, "color", u8).unwrap_or_else(|e| e.exit());
-    let aux_color = values_t!(matches, "aux-color", u8).ok().map(|x|Pixel{ red: x[0], green: x[1], blue: x[3] });
+    let aux_color = values_t!(matches, "aux-color", u8).ok().map(|x|Pixel{ red: x[0], green: x[1], blue: x[2] });
     let effect = {
         if matches.is_present("effect") {
             let param = value_t!(matches,"param", u8).unwrap_or(5);
@@ -43,15 +43,15 @@ fn main() {
     };
     let aux_effect = {
         if matches.is_present("aux-effect") {
-            let param = value_t!(matches,"aux-param", u8).unwrap_or(5);
+            let aux_param = value_t!(matches,"aux-param", u8).unwrap_or(5);
             match value_t!(matches, "aux-effect", String).unwrap_or_else(|e| e.exit()).as_ref() {
                 "None" => AuxEffect::None,
-                "Offset" => AuxEffect::Offset(param),
-                "FillLeft" => AuxEffect::FillLeft(param),
-                "FillCenter" => AuxEffect::FillCenter(param),
-                "FillRight" => AuxEffect::FillRight(param),
-                "FillEdges" => AuxEffect::FillEdges(param),
-                "FillDouble" => AuxEffect::FillDouble(param),
+                "Offset" => AuxEffect::Offset(aux_param),
+                "FillLeft" => AuxEffect::FillLeft(aux_param),
+                "FillCenter" => AuxEffect::FillCenter(aux_param),
+                "FillRight" => AuxEffect::FillRight(aux_param),
+                "FillEdges" => AuxEffect::FillEdges(aux_param),
+                "FillDouble" => AuxEffect::FillDouble(aux_param),
                 _ => panic!()
             }
         } else {
