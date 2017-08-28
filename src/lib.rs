@@ -1,4 +1,5 @@
-#![feature(conservative_impl_trait, try_from)]
+#![feature(conservative_impl_trait, try_from, catch_expr)]
+#![deny(missing_debug_implementations)]
 #[macro_use]
 extern crate futures;
 extern crate tokio_core;
@@ -16,150 +17,189 @@ extern crate untrustended;
 extern crate error_chain;
 extern crate set_neopixels;
 
-use std::sync::Arc;
-use std::thread::{self, JoinHandle};
-use std::net::SocketAddr;
-use std::io::Result as IoResult;
-use std::collections::HashMap;
+use std::result::Result as StdResult;
+use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr};
+use std::collections::{HashMap, BTreeSet, VecDeque};
 
-use futures::sync::mpsc::*;
-use futures::{Future, Stream, Sink, Poll, Async};
+use futures::{Future, Poll, Stream, Sink, StartSend, Async, AsyncSink};
+use futures::sync::mpsc::{unbounded, UnboundedSender, UnboundedReceiver, SendError};
 
-use tokio_core::reactor::{Handle, Core};
-use tokio_core::net::{UdpSocket, UdpFramed, UdpCodec};
+use tokio_core::reactor;
+use tokio_core::net::{UdpFramed, UdpSocket};
 
-use untrusted::{Reader, Input};
-use untrustended::{ReaderExt, Error as UntrustendedError};
-
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-
-use atomic_box::AtomicBox;
-
-mod errors {
+pub mod errors {
     error_chain!{}
 }
 
+mod proto;
+
 use errors::*;
+use proto::{WirePacket, DataPacket, WireProto, MessageId, PacketAssembler, PacketSpliter};
 
-// All values are u64 until wrapping can be figured out
+pub use proto::{ChannelID, Epoch, AssembledPacket, AssembledDataPacket};
 
-struct Packet {
-    epoch: u64,
-    seq: u64,
-    kind: PacketKind,
+#[derive(Debug)]
+pub enum ControlPacket {
+    SendData(AssembledDataPacket),
+}
+#[derive(Debug)]
+pub enum RecievedPacket {
+    Data(AssembledDataPacket),
 }
 
-enum PacketKind {
-    Ack(AckPacket),
-    Pixel(PixelPacket),
+#[derive(Debug)]
+pub struct ServerHandle {
+    recv: UnboundedReceiver<RecievedPacket>,
+    send: UnboundedSender<ControlPacket>,
 }
 
-#[derive(Serialize)]
-struct AckPacket {
-    seq: u64,
-    epoch: u64,
-    set: u64,
-}
-
-#[derive(Serialize)]
-struct PixelPacket {
-    screen_id: u8,
-    start: u64,
-    buf: Box<u8>,
-}
-
-struct RawPacket {
-    epoch: u64,
-    seq: u64,
-    kind: u64,
-    data: Box<u8>,
-}
-
-struct Codec {}
-
-impl UdpCodec for Codec {
-    type In = (SocketAddr, Packet);
-    type Out = (SocketAddr, Packet);
-    fn decode(&mut self, src: &SocketAddr, buf: &[u8]) -> IoResult<Self::In> {
-        let mut r = Reader::new(Input::from(buf));
-        r.read_u8();
-        unimplemented!()
-    }
-    fn encode(&mut self, (addr, pack): Self::Out, buf: &mut Vec<u8>) -> SocketAddr {
-        unimplemented!()
+impl Stream for ServerHandle {
+    type Item = RecievedPacket;
+    type Error = ();
+    fn poll(&mut self) -> Poll<Option<RecievedPacket>, ()> {
+        self.recv.poll()
     }
 }
 
-struct ServerBuilder {}
+impl Sink for ServerHandle {
+    type SinkItem = ControlPacket;
+    type SinkError = SendError<ControlPacket>;
 
-impl ServerBuilder {
-    fn new(h: Handle) -> Self {
-        Self {}
+    fn start_send(
+        &mut self,
+        msg: ControlPacket,
+    ) -> StartSend<ControlPacket, SendError<ControlPacket>> {
+        self.send.start_send(msg)
     }
-    fn run(self) -> Result<ServerHandle> {
-        let t = thread::spawn(move || {
-            Server::new()?;
-            Ok(())
-        });
-        Ok(ServerHandle { thread: t })
+    fn poll_complete(&mut self) -> Poll<(), SendError<ControlPacket>> {
+        self.send.poll_complete()
+    }
+    fn close(&mut self) -> Poll<(), SendError<ControlPacket>> {
+        self.send.close()
     }
 }
 
-trait Watchable {}
-impl<T> Watchable for T
-where
-    T: DeserializeOwned + Serialize,
-{
+pub struct Server {
+    addr: SocketAddr,
+    recv: UnboundedReceiver<ControlPacket>,
+    send: UnboundedSender<RecievedPacket>,
+    handle: reactor::Handle,
+    assembler: PacketAssembler,
+    splitter: PacketSpliter,
+    sock: UdpFramed<WireProto>,
+    send_buf: VecDeque<AssembledPacket>,
+    split_send_buf: VecDeque<WirePacket>,
+    send_buf_buf: Option<WirePacket>,
 }
 
-struct Watched {
-    item: AtomicBox<Watchable>,
-}
-
-struct ServerHandle {
-    thread: JoinHandle<Result<()>>,
-}
-
-struct Server {
-    framed: UdpFramed<Codec>,
-    watched_vals: HashMap<String, Watched>,
+impl std::fmt::Debug for Server {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> StdResult<(), std::fmt::Error> {
+        f.debug_struct("Server")
+            .field("addr", &self.addr)
+            .field("recv", &self.recv)
+            .field("send", &self.send)
+            .field("handle", &self.handle)
+            .field("assembler", &self.assembler)
+            .field("splitter", &self.splitter)
+            .field("sock", self.sock.get_ref())
+            .field("send_buf", &self.send_buf)
+            .field("split_send_buf", &self.split_send_buf)
+            .field("send_buf_buf", &self.send_buf_buf)
+            .finish()
+    }
 }
 
 impl Server {
-    fn new() -> Result<()> {
-        let mut core = Core::new().chain_err(|| "Error starting core")?;
-        let h = core.handle();
-        let sock = UdpSocket::bind(&([239, 53, 38, 0], 5338).into(), &h)
-            .chain_err(|| "Error binding socket")?;
-
+    pub fn new(handle: reactor::Handle, addr: &Ipv4Addr) -> Result<(Self, ServerHandle)> {
+        let addr = addr.clone();
+        let sock_addr = (addr, 5338u16).into();
+        let (client_send, server_recv) = unbounded();
+        let (server_send, client_recv) = unbounded();
+        let sock = UdpSocket::bind(&sock_addr, &handle).chain_err(|| {
+            format!("Error binding socket to {}", addr)
+        })?;
         sock.set_multicast_loop_v4(true).chain_err(
-            || "Unable to set multicast loop setting",
+            || "Unable to set multicast_loop_v4",
         )?;
-        sock.set_multicast_ttl_v4(1).chain_err(
-            || "Unable to set multicast ttl",
+        sock.join_multicast_v4(&[239, 53, 38, 42u8].into(), &addr)
+            .chain_err(|| "Error joining multicast group")?;
+        Ok((
+            Self {
+                addr: sock_addr,
+                recv: server_recv,
+                send: server_send,
+                handle,
+                assembler: PacketAssembler::new(),
+                splitter: PacketSpliter::new(),
+                sock: sock.framed(WireProto),
+                send_buf: VecDeque::new(),
+                split_send_buf: VecDeque::new(),
+                send_buf_buf: None,
+            },
+            ServerHandle {
+                recv: client_recv,
+                send: client_send,
+            },
+        ))
+    }
+    fn process_incoming(&mut self) -> Poll<(), Error> {
+        loop {
+            let p = match try_ready!(self.sock.poll().chain_err(|| "Error polling Socket")) {
+                None => return Ok(Async::NotReady),
+                Some(p) => p,
+            };
+            match self.assembler.assemble(p.0)? {
+                Some(AssembledPacket::Data(p)) => {
+                    UnboundedSender::send(&self.send, RecievedPacket::Data(p))
+                        .chain_err(|| "Error sending packet to channel")?;
+                }
+                None => {}
+            }
+        }
+    }
+    fn process_channels(&mut self) -> Poll<(), Error> {
+        loop {
+            let p = match try_ready!(self.recv.poll().map_err(|()| "Error polling channel")) {
+                None => return Ok(Async::NotReady),
+                Some(p) => p,
+            };
+            match p {
+                ControlPacket::SendData(data) => {
+                    self.send_buf.push_back(AssembledPacket::Data(data));
+                }
+            }
+        }
+    }
+    fn process_outgoing(&mut self) -> Poll<(), Error> {
+        self.send.poll_complete().chain_err(
+            || "Error polling socket",
         )?;
-        sock.join_multicast_v4(&[239, 53, 38, 0].into(), &[0, 0, 0, 0].into())
-            .chain_err(|| "Unable to join multicast socket")?;
-        let s = Server {
-            framed: sock.framed(Codec {}),
-            watched_vals: HashMap::new(),
-        };
-        core.run(s)
+        loop {
+            while let Some(p) = self.split_send_buf.pop_front() {
+                match self.sock.start_send((p, self.addr)).chain_err(
+                    || "Error sending packet to socket",
+                )? {
+                    AsyncSink::NotReady(p) => {
+                        self.split_send_buf.push_front(p.0);
+                        return Ok(Async::NotReady);
+                    }
+                    AsyncSink::Ready => {}
+                }
+            }
+            if let Some(p) = self.send_buf.pop_back() {
+                self.split_send_buf.extend(self.splitter.split(p));
+            }
+        }
     }
 }
 
 impl Future for Server {
-    type Item = ();
     type Error = Error;
-    fn poll(&mut self) -> Poll<(), Error> {
-        match self.framed.poll().chain_err(|| "Error recieving packet")? {
-            Async::Ready(p) => {}
-            Async::NotReady => {}
-        }
-        self.framed.poll_complete().chain_err(
-            || "Error sending packets",
-        )?;
+    type Item = ();
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.process_incoming()?;
+        self.process_channels()?;
+        self.process_outgoing()?;
         Ok(Async::NotReady)
     }
 }
