@@ -1,26 +1,17 @@
-#![feature(conservative_impl_trait, try_from, catch_expr)]
+#![feature(conservative_impl_trait, catch_expr)]
 #![deny(missing_debug_implementations)]
 #[macro_use]
 extern crate futures;
 extern crate tokio_core;
 extern crate net2;
-extern crate atomic_box;
-extern crate serde;
-extern crate bincode;
 extern crate lru_cache;
-extern crate rand;
-#[macro_use]
-extern crate serde_derive;
 extern crate byteorder;
-extern crate untrusted;
-extern crate untrustended;
 #[macro_use]
 extern crate error_chain;
-extern crate set_neopixels;
 
 use std::result::Result as StdResult;
 use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr};
-use std::collections::{HashMap, BTreeSet, VecDeque};
+use std::collections::VecDeque;
 
 use futures::{Future, Poll, Stream, Sink, StartSend, Async, AsyncSink};
 use futures::sync::mpsc::{unbounded, UnboundedSender, UnboundedReceiver, SendError};
@@ -37,7 +28,7 @@ pub mod errors {
 mod proto;
 
 use errors::*;
-use proto::{WirePacket, DataPacket, WireProto, MessageId, PacketAssembler, PacketSpliter};
+use proto::{WirePacket, WireProto, PacketAssembler, PacketSpliter};
 
 pub use proto::{ChannelID, Epoch, AssembledPacket, AssembledDataPacket};
 

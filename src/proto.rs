@@ -1,7 +1,6 @@
-use std::collections::{HashMap, BTreeMap, BTreeSet};
+use std::collections::{HashMap, BTreeMap};
 use std::result::Result as StdResult;
 use std::net::SocketAddr;
-use std::cmp::Ordering;
 use std::mem;
 use std::io::{Read, Write, Cursor, Result as IoResult, Error as IoError, ErrorKind};
 
