@@ -6,6 +6,7 @@ authors = ["Jacob Hughes <j@jacobhughes.me>"]
 [dependencies]
 tokio-core = "0.1"
 futures = "0.1"
+net2 = "0.2"
 atomic_box = "0.1.1"
 serde = "1"
 serde_derive = "1"

@@ -243,6 +243,7 @@ impl UdpCodec for WireProto {
     type In = (WirePacket, SocketAddr);
     type Out = (WirePacket, SocketAddr);
     fn decode(&mut self, addr: &SocketAddr, buf: &[u8]) -> IoResult<Self::In> {
+        println!("Recieved packet from {:?}: {:?}", addr, buf);
         Ok((WirePacket::decode(buf)?, addr.clone()))
     }
     fn encode(
@@ -250,6 +251,9 @@ impl UdpCodec for WireProto {
         (packet, addr): (WirePacket, SocketAddr),
         buf: &mut Vec<u8>,
     ) -> SocketAddr {
+        println!("sending: {:?} to {:?}", packet, addr);
+        packet.encode(buf);
+        println!("BUF: {:?}", buf);
         addr
     }
 }
