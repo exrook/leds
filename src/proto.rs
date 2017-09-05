@@ -10,7 +10,7 @@ use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use errors::*;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
-pub struct ChannelID(u64);
+pub struct ChannelID(pub u64);
 
 impl ChannelID {
     pub fn new(id: u64) -> Self {
