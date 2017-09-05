@@ -23,8 +23,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "atomic_box"
-version = "0.1.0"
-source = "git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git#c85dcfd8fb3c2133a78e629dd077b4253571b18b"
+version = "0.1.1"
+source = "git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git#3a71852e79660137d04176508a66b58ecdc17818"
 
 [[package]]
 name = "atomic_box"
@@ -530,7 +530,7 @@ dependencies = [
 name = "set_neopixels"
 version = "0.1.0"
 dependencies = [
- "atomic_box 0.1.0 (git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git)",
+ "atomic_box 0.1.1 (git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git)",
  "serde 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "serial 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -631,7 +631,7 @@ dependencies = [
 
 [metadata]
 "checksum approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08abcc3b4e9339e33a3d0a5ed15d84a687350c05689d825e0f6655eef9e76a94"
-"checksum atomic_box 0.1.0 (git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git)" = "<none>"
+"checksum atomic_box 0.1.1 (git+ssh://git@git.jacobhughes.me/exrook/atomic_box.git)" = "<none>"
 "checksum atomic_box 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "484c1d4362e24b9c39a5547b4635dee0685c98c561510af7369fd51a421415ee"
 "checksum backtrace 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "99f2ce94e22b8e664d95c57fff45b98a966c2252b60691d0b7aeeccd88d70983"
 "checksum backtrace-sys 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "afccc5772ba333abccdf60d55200fa3406f8c59dcf54d5f7998c9107d3799c7c"
