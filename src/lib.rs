@@ -163,12 +163,10 @@ impl Server {
     }
     fn process_incoming(&mut self) -> Poll<(), Error> {
         loop {
-            println!("process_incoming");
             let p = match try_ready!(self.sock.poll().chain_err(|| "Error polling Socket")) {
                 None => return Ok(Async::NotReady),
                 Some(p) => p,
             };
-            println!("Got: {:?} from socket", p);
             match self.assembler.assemble(p.0)? {
                 Some(AssembledPacket::Data(p)) => {
                     UnboundedSender::send(&self.send, RecievedPacket::Data(p))
@@ -180,12 +178,10 @@ impl Server {
     }
     fn process_channels(&mut self) -> Poll<(), Error> {
         loop {
-            println!("process_channels");
             let p = match try_ready!(self.recv.poll().map_err(|()| "Error polling channel")) {
                 None => return Ok(Async::NotReady),
                 Some(p) => p,
             };
-            println!("Got: {:?}", p);
             match p {
                 ControlPacket::SendData(data) => {
                     self.send_buf.push_back(AssembledPacket::Data(data));
@@ -198,9 +194,7 @@ impl Server {
             || "Error polling socket",
         )?;
         loop {
-            println!("process_outgoing");
             while let Some(p) = self.split_send_buf.pop_front() {
-                println!("pop split_send_buf");
                 match self.sock
                     .start_send((p, self.group_addr.into()))
                     .chain_err(|| "Error sending packet to socket")? {
@@ -208,13 +202,10 @@ impl Server {
                         self.split_send_buf.push_front(p.0);
                         return Ok(Async::NotReady);
                     }
-                    AsyncSink::Ready => {
-                        println!("Sent");
-                    }
+                    AsyncSink::Ready => {}
                 }
             }
             if let Some(p) = self.send_buf.pop_back() {
-                println!("pop send_buf");
                 self.split_send_buf.extend(self.splitter.split(p));
             } else {
                 return Ok(Async::NotReady);
@@ -227,7 +218,7 @@ impl Future for Server {
     type Error = Error;
     type Item = ();
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        println!("Polled");
+        //println!("Polled");
         self.process_incoming().unwrap();
         self.process_channels().unwrap();
         self.process_outgoing().unwrap();

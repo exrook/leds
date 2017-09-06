@@ -169,9 +169,19 @@ impl DataPacketAssembly {
         let epoch = packet.epoch;
         let msg_id = packet.msg_id;
         match mem::replace(&mut self.pieces[seq as usize], Some(packet)) {
-            None => {}
-            Some(_) => self.count += 1,
+            None => self.count += 1,
+            Some(_) => println!("DUPLICATE PACKET RECIEVED"),
         };
+        let c = self.pieces
+            .iter()
+            .map(|x| x.as_ref().map(|_| 1).unwrap_or(0))
+            .sum();
+        //assert!(c == self.count);
+        if c != self.count {
+            //println!("ERROR MISCOUNT {} != {}", c, self.count);
+        }
+        self.count = c;
+        //println!("Count: {:?}", self.count);
         if self.count == self.msg_len {
             let mut out = vec![];
             for mut p in self.pieces.iter_mut() {
@@ -242,7 +252,7 @@ impl UdpCodec for WireProto {
     type In = (WirePacket, SocketAddr);
     type Out = (WirePacket, SocketAddr);
     fn decode(&mut self, addr: &SocketAddr, buf: &[u8]) -> IoResult<Self::In> {
-        println!("Recieved packet from {:?}: {:?}", addr, buf);
+        //println!("Recieved packet from {:?}", addr);
         Ok((WirePacket::decode(buf)?, addr.clone()))
     }
     fn encode(
@@ -250,9 +260,8 @@ impl UdpCodec for WireProto {
         (packet, addr): (WirePacket, SocketAddr),
         buf: &mut Vec<u8>,
     ) -> SocketAddr {
-        println!("sending: {:?} to {:?}", packet, addr);
+        //println!("sending: {:?} to {:?}", packet, addr);
         packet.encode(buf);
-        println!("BUF: {:?}", buf);
         addr
     }
 }
