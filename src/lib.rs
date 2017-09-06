@@ -14,7 +14,7 @@ use std::ffi::OsStr;
 use std::f64::consts::PI;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, Copy)]
 pub struct Pixel {
     pub red: u8,
     pub green: u8,
@@ -66,7 +66,7 @@ pub fn setup<T: AsRef<OsStr> + ?Sized>(port: &T) -> serial::SystemPort {
         settings.set_flow_control(serial::FlowNone);
         Ok(())
     }).unwrap();;
-    port.set_dtr(false);
+    port.set_dtr(true);
     port.set_timeout(Duration::from_millis(1000));
     return port;
 }
@@ -128,6 +128,152 @@ pub fn set_pixels4<T: SerialPort>(port: &mut T, pixels: &[Pixel]) -> io::Result<
         .into_iter()
         .flat_map(|p| vec![p.red, p.green, p.blue])
         .collect::<Vec<u8>>())
+    //    .chunks(2000)
+    //{
+    //    port.write_all(c)?;
+    //    sleep(Duration::from_millis(200));
+    //    println!("CHUNK");
+    //}
+    //println!("DONEEEEEEEEEEEEEEEEEEEEE: {:?}", pixels.len());
+    //Ok(())
+}
+
+pub fn set_effect_compat<T: SerialPort>(
+    port: &mut T,
+    color: Pixel,
+    effect: Effect,
+    color2: Option<Pixel>,
+    aux_effect: AuxEffect,
+    count: usize,
+) -> io::Result<()> {
+    set_pixels4(port, &gen_effect(color, effect, color2, aux_effect, count))
+}
+pub fn gen_effect(
+    color: Pixel,
+    effect: Effect,
+    color2: Option<Pixel>,
+    aux_effect: AuxEffect,
+    count: usize,
+) -> Vec<Pixel> {
+    let mut pixels = vec![Default::default(); count];
+    pixels[0] = Pixel {
+        red: 0,
+        green: 0,
+        blue: 0,
+    };
+    match effect {
+        Effect::Constant => {
+            for p in pixels.iter_mut() {
+                *p = color;
+            }
+        }
+        Effect::Flash(rate) => unimplemented!("Flash doesn't make sense with the new system"),
+        Effect::SetPix(num) => {
+            pixels[num as usize] = color;
+        }
+        Effect::Width(width) => {
+            for p in pixels[((count / 2) - width as usize)..((count / 2) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+        }
+        Effect::DoubleWidth(width) => {
+            for p in pixels[((count / 4) - width as usize)..((count / 4) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+            for p in pixels[((count * 3 / 4) - width as usize)..
+                                ((count * 3 / 4) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+        }
+        Effect::QuadWidth(width) => {
+            for p in pixels[((count / 8) - width as usize)..((count / 8) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+            for p in pixels[((count * 3 / 8) - width as usize)..
+                                ((count * 3 / 8) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+            for p in pixels[((count * 5 / 8) - width as usize)..
+                                ((count * 5 / 8) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+            for p in pixels[((count * 7 / 8) - width as usize)..
+                                ((count * 7 / 8) + width as usize)]
+                .iter_mut()
+            {
+                *p = color;
+            }
+        }
+        Effect::Edges(width) => {
+            for p in pixels[..width as usize].iter_mut() {
+                *p = color;
+            }
+            for p in pixels[count - width as usize..].iter_mut() {
+                *p = color;
+            }
+        }
+    };
+
+    let color2 = color2.unwrap_or_else(Pixel::default);
+    match aux_effect {
+        AuxEffect::None => {}
+        AuxEffect::Offset(amount) => {
+            let p2 = pixels.clone();
+            for (i, p) in pixels.iter_mut().enumerate() {
+                *p = p2[(i + (amount as usize)) % count];
+            }
+        }
+        AuxEffect::FillLeft(len) => {
+            for p in pixels[..len as usize].iter_mut() {
+                *p = color2
+            }
+        }
+        AuxEffect::FillCenter(len) => {
+            for p in pixels[(count / 2) - len as usize..(count / 2) + len as usize].iter_mut() {
+                *p = color2
+            }
+        }
+        AuxEffect::FillRight(len) => {
+            for p in pixels[count - len as usize..].iter_mut() {
+                *p = color2
+            }
+        }
+        AuxEffect::FillEdges(len) => {
+            for p in pixels[..len as usize].iter_mut() {
+                *p = color2
+            }
+            for p in pixels[count - len as usize..].iter_mut() {
+                *p = color2
+            }
+        }
+        AuxEffect::FillDouble(len) => {
+            // fill left
+            for p in pixels[..len as usize].iter_mut() {
+                *p = color2
+            }
+            // fill center
+            for p in pixels[(count / 2) - len as usize..(count / 2) + len as usize].iter_mut() {
+                *p = color2
+            }
+            // fill right
+            for p in pixels[count - len as usize..].iter_mut() {
+                *p = color2
+            }
+        }
+    };
+    pixels
 }
 
 pub fn set_effect<T: SerialPort>(
