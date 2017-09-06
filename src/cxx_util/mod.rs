@@ -267,7 +267,6 @@ impl<'a> CxxMap<'a,i32,CxxVector<'a,CxxFeature>> {
             let vec = cxxvec.to_vec();
             cxxvec.into_raw();
             map.insert(key,vec);
-            println!("TEST");
         });
         unsafe{cpp!([map as "std::map<int,std::vector<Vamp::Plugin::Feature>>*",process_pair as "void*",mut data_ptr as "void*"] {
             for (auto element: *map) {

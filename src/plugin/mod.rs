@@ -1,15 +1,15 @@
 use std::ffi::CString;
 use std::collections::BTreeMap;
 
-use ::cxx_util::{CxxVector,CxxInnerVector,CxxMap,CxxInnerMap,CxxString};
+use cxx_util::{CxxVector, CxxInnerVector, CxxMap, CxxInnerMap, CxxString};
 
 mod output_descriptor;
 mod feature;
 mod parameter_descriptor;
-pub use self::feature::{Feature,RealTime};
-pub use self::feature::{CxxFeature,CxxRealTime};
-pub use self::output_descriptor::{CxxOutputDescriptor,OutputDescriptor,SampleType};
-pub use self::parameter_descriptor::{CxxParameterDescriptor,ParameterDescriptor};
+pub use self::feature::{Feature, RealTime};
+pub use self::feature::{CxxFeature, CxxRealTime};
+pub use self::output_descriptor::{CxxOutputDescriptor, OutputDescriptor, SampleType};
+pub use self::parameter_descriptor::{CxxParameterDescriptor, ParameterDescriptor};
 pub type FeatureList = Vec<Feature>;
 pub type FeatureSet = BTreeMap<i32, FeatureList>;
 pub type OutputList = Vec<OutputDescriptor>;
@@ -18,7 +18,7 @@ pub enum Plugin {}
 #[derive(Debug)]
 pub enum InputDomain {
     TimeDomain,
-    FrequencyDomain
+    FrequencyDomain,
 }
 impl Plugin {
     /// Initialise a plugin to prepare it for use with the given number of input channels, step size (window increment, in sample frames) and block size (window size, in sample frames).
@@ -26,13 +26,20 @@ impl Plugin {
     /// The input sample rate should have been already specified at construction time.
     ///
     /// Return true for successful initialisation, false if the number of input channels, step size and/or block size cannot be supported.
-    pub fn initialise(&mut self, input_channels: usize, step_size: usize, block_size: usize) -> Result<(),()> {
+    pub fn initialise(
+        &mut self,
+        input_channels: usize,
+        step_size: usize,
+        block_size: usize,
+    ) -> Result<(), ()> {
         let mut plugin = self as *mut _;
-        match unsafe { cpp!([mut plugin as "Plugin*", input_channels as "size_t", step_size as "size_t", block_size as "size_t"] -> bool as "bool" {
+        match unsafe {
+            cpp!([mut plugin as "Plugin*", input_channels as "size_t", step_size as "size_t", block_size as "size_t"] -> bool as "bool" {
                 return plugin->initialise(input_channels, step_size, block_size); // MEMS
-            })} {
+            })
+        } {
             true => Ok(()),
-            false => Err(())
+            false => Err(()),
         }
     }
     /// Reset the plugin after use, to prepare it for another clean run.
@@ -40,7 +47,7 @@ impl Plugin {
     /// Not called for the first initialisation (i.e. initialise must also do a reset).
     pub fn reset(&mut self) {
         let mut plugin = self as *mut _;
-        unsafe { cpp!([mut plugin as "Plugin*"] { plugin->reset(); })}
+        unsafe { cpp!([mut plugin as "Plugin*"] { plugin->reset(); }) }
     }
     /// Get the plugin's required input domain.
     ///
@@ -49,7 +56,8 @@ impl Plugin {
     /// If this is FrequencyDomain, the host will carry out a windowed FFT of size equal to the negotiated block size on the data before passing the frequency bin data in to process(). The input data for the FFT will be rotated so as to place the origin in the centre of the block. The plugin does not get to choose the window type -- the host will either let the user do so, or will use a Hanning window.
     pub fn get_input_domain(&self) -> InputDomain {
         let plugin = self as *const _;
-        match unsafe { cpp!([plugin as "Plugin*"] -> i32 as "int" {
+        match unsafe {
+            cpp!([plugin as "Plugin*"] -> i32 as "int" {
                 auto en = plugin->getInputDomain(); // MEMS
                 switch (en) {
                     case Plugin::TimeDomain:
@@ -57,10 +65,11 @@ impl Plugin {
                     case Plugin::FrequencyDomain:
                         return 1;
                 }
-            })} {
+            })
+        } {
             0 => InputDomain::TimeDomain,
             1 => InputDomain::FrequencyDomain,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     /// Get the preferred block size (window size -- the number of sample frames passed in each block to the process() function).
@@ -70,9 +79,11 @@ impl Plugin {
     /// A plugin that can handle any block size may return 0. The final block size will be set in the initialise() call.
     pub fn get_preferred_block_size(&self) -> usize {
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*"] -> usize as "size_t" {
+        unsafe {
+            cpp!([plugin as "Plugin*"] -> usize as "size_t" {
             return plugin->getPreferredBlockSize(); // MEMS
-        })}
+        })
+        }
     }
     /// Get the preferred step size (window increment -- the distance in sample frames between the start frames of consecutive blocks passed to the process() function) for the plugin.
     ///
@@ -81,45 +92,55 @@ impl Plugin {
     /// A plugin may return 0 if it has no particular interest in the step size. In this case, the host should make the step size equal to the block size if the plugin is accepting input in the time domain. If the plugin is accepting input in the frequency domain, the host may use any step size. The final step size will be set in the initialise() call.
     pub fn get_preferred_step_size(&self) -> usize {
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*"] -> usize as "size_t" {
+        unsafe {
+            cpp!([plugin as "Plugin*"] -> usize as "size_t" {
             return plugin->getPreferredStepSize(); // MEMS
-        })}
+        })
+        }
     }
     /// Get the minimum supported number of input channels.
     pub fn get_min_channel_count(&self) -> usize {
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*"] -> usize as "size_t" {
+        unsafe {
+            cpp!([plugin as "Plugin*"] -> usize as "size_t" {
             return plugin->getMinChannelCount(); // MEMS
-        })}
+        })
+        }
     }
     /// Get the maximum supported number of input channels.
     pub fn get_max_channel_count(&self) -> usize {
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*"] -> usize as "size_t" {
+        unsafe {
+            cpp!([plugin as "Plugin*"] -> usize as "size_t" {
             return plugin->getMaxChannelCount(); // MEMS
-        })}
+        })
+        }
     }
     /// Get the outputs of this plugin.
     ///
     /// An output's index in this list is used as its numeric index when looking it up in the FeatureSet returned from the process() call.
     pub fn get_output_descriptors(&self) -> OutputList {
         let plugin = self as *const _;
-        let tmp: CxxVector<CxxOutputDescriptor> = unsafe { CxxVector::from(cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<Plugin::OutputDescriptor>*" {
+        let tmp: CxxVector<CxxOutputDescriptor> = unsafe {
+            CxxVector::from(
+                cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<Plugin::OutputDescriptor>*" {
             auto out = new std::vector<Plugin::OutputDescriptor>();
             *out = plugin->getOutputDescriptors();
             return out;
-        }))};
+        }),
+            )
+        };
         let v = tmp.to_vec();
-        unsafe {tmp.delete()};
+        unsafe { tmp.delete() };
         v
     }
     /// Process a single block of input data.
-    /// 
+    ///
     /// If the plugin's inputDomain is TimeDomain, inputBuffers will point to one array of floats per input channel, and each of these arrays will contain blockSize consecutive audio samples (the host will zero-pad as necessary). The timestamp in this case will be the real time in seconds of the start of the supplied block of samples.
-    /// 
+    ///
     /// If the plugin's inputDomain is FrequencyDomain, inputBuffers will point to one array of floats per input channel, and each of these arrays will contain blockSize/2+1 consecutive pairs of real and imaginary component floats corresponding to bins 0..(blockSize/2) of the FFT output. That is, bin 0 (the first pair of floats) contains the DC output, up to bin blockSize/2 which contains the Nyquist-frequency output. There will therefore be blockSize+2 floats per channel in total. The timestamp will be the real time in seconds of the centre of the FFT input window (i.e. the very first block passed to process might contain the FFT of half a block of zero samples and the first half-block of the actual data, with a timestamp of zero).
-    /// 
-    /// Return any features that have become available after this process call. (These do not necessarily have to fall within the process block, except for OneSamplePerStep outputs.) 
+    ///
+    /// Return any features that have become available after this process call. (These do not necessarily have to fall within the process block, except for OneSamplePerStep outputs.)
     pub fn process(&mut self, input_buffers: Vec<Vec<f32>>, timestamp: RealTime) -> FeatureSet {
         let mut plugin = self as *mut _;
         let mut c_input_bufs = Vec::new();
@@ -128,29 +149,35 @@ impl Plugin {
         }
         let c_input_bufs_ptr = c_input_bufs.as_ptr();
         let tstamp_box = CxxRealTime::from(&timestamp);
-        let tstamp_ptr = Box::into_raw(tstamp_box);
-        let tmp: CxxMap<i32,CxxVector<CxxFeature>> = unsafe { CxxMap::from(cpp!([mut plugin as "Plugin*", c_input_bufs_ptr as "float *const *", tstamp_ptr as "Vamp::RealTime*"] -> *mut CxxInnerMap as "std::map<int,std::vector<Plugin::Feature>>*" {
+        let tstamp_ptr = tstamp_box.0;
+        let tmp: CxxMap<i32, CxxVector<CxxFeature>> = unsafe {
+            CxxMap::from(
+                cpp!([mut plugin as "Plugin*", c_input_bufs_ptr as "float *const *", tstamp_ptr as "Vamp::RealTime*"] -> *mut CxxInnerMap as "std::map<int,std::vector<Plugin::Feature>>*" {
             auto out = new std::map<int,std::vector<Plugin::Feature>>();
             *out = plugin->process(c_input_bufs_ptr, *tstamp_ptr);
             return out;
-        }))};
-        unsafe{Box::from_raw(tstamp_ptr)};
+        }),
+            )
+        };
+        unsafe { Box::from_raw(tstamp_ptr) };
         let m = tmp.to_map();
-        unsafe {tmp.delete()};
+        unsafe { tmp.delete() };
         m
     }
-    /// After all blocks have been processed, calculate and return any remaining features derived from the complete input. 
+    /// After all blocks have been processed, calculate and return any remaining features derived from the complete input.
     pub fn get_remaining_features(&mut self) -> FeatureSet {
         let mut plugin = self as *mut _;
-        let tmp_ptr = unsafe { cpp!([mut plugin as "Plugin*"] -> *mut CxxInnerMap as "std::map<int,std::vector<Plugin::Feature>>*" {
+        let tmp_ptr = unsafe {
+            cpp!([mut plugin as "Plugin*"] -> *mut CxxInnerMap as "std::map<int,std::vector<Plugin::Feature>>*" {
             auto out = new std::map<int,std::vector<Plugin::Feature>>();
             *out = plugin->getRemainingFeatures();
             return out;
-        })};
+        })
+        };
         not_null!(tmp_ptr);
-        let tmp: CxxMap<i32,CxxVector<CxxFeature>> = unsafe {CxxMap::from(tmp_ptr)};
+        let tmp: CxxMap<i32, CxxVector<CxxFeature>> = unsafe { CxxMap::from(tmp_ptr) };
         let m = tmp.to_map();
-        unsafe {tmp.delete()};
+        unsafe { tmp.delete() };
         m
     }
     /// Used to distinguish between Vamp::Plugin and other potential sibling subclasses of PluginBase.
@@ -158,23 +185,27 @@ impl Plugin {
     /// Do not reimplement this function in your subclass.
     pub fn get_type(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getType();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Get the Vamp API compatibility level of the plugin.
     pub fn get_vamp_api_version(&self) -> u32 {
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*"] -> u32 as "uint" {
+        unsafe {
+            cpp!([plugin as "Plugin*"] -> u32 as "uint" {
             return plugin->getVampApiVersion(); // MEMS
-        })}
+        })
+        }
     }
     /// Get the computer-usable name of the plugin.
     ///
@@ -185,15 +216,17 @@ impl Plugin {
     /// Example: "zero_crossings"
     pub fn get_identifier(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getIdentifier();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Get a human-readable name or title of the plugin.
@@ -203,15 +236,17 @@ impl Plugin {
     /// Example: "Zero Crossings"
     pub fn get_name(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getName();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Get a human-readable description for the plugin, typically a line of text that may optionally be displayed in addition to the plugin's "name".
@@ -221,15 +256,17 @@ impl Plugin {
     /// Example: "Detect and count zero crossing points"
     pub fn get_description(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getDescription();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Get the name of the author or vendor of the plugin in human-readable form.
@@ -237,15 +274,17 @@ impl Plugin {
     /// This should be a short identifying text, as it may be used to label plugins from the same source in a menu or similar.
     pub fn get_maker(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getMaker();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Get the copyright statement or licensing summary for the plugin.
@@ -253,34 +292,42 @@ impl Plugin {
     /// This can be an informative text, without the same presentation constraints as mentioned for getMaker above.
     pub fn get_copyright(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getCopyright();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Get the version number of the plugin.
     pub fn get_plugin_version(&self) -> u32 {
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*"] -> u32 as "uint" {
+        unsafe {
+            cpp!([plugin as "Plugin*"] -> u32 as "uint" {
             return plugin->getPluginVersion(); // MEMS
-        })}
+        })
+        }
     }
     /// Get the controllable parameters of this plugin.
     pub fn get_parameter_descriptors(&self) -> ParameterList {
         let mut plugin = self as *const _;
-        let cxxvec: CxxVector<CxxParameterDescriptor> = unsafe {CxxVector::from(cpp!([mut plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<Plugin::ParameterDescriptor>*" {
+        let cxxvec: CxxVector<CxxParameterDescriptor> = unsafe {
+            CxxVector::from(
+                cpp!([mut plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<Plugin::ParameterDescriptor>*" {
             auto vv = new std::vector<Plugin::ParameterDescriptor>();
             *vv = plugin->getParameterDescriptors();
             return vv;
-        }))};
+        }),
+            )
+        };
         let out = cxxvec.to_vec();
-        unsafe{cxxvec.delete()};
+        unsafe { cxxvec.delete() };
         return out;
     }
     /// Get the value of a named parameter.
@@ -289,10 +336,12 @@ impl Plugin {
     pub fn get_parameter(&self, param: CString) -> f32 {
         let param_ptr = param.as_ptr();
         let plugin = self as *const _;
-        unsafe { cpp!([plugin as "Plugin*", param_ptr as "char*"] -> f32 as "float" {
+        unsafe {
+            cpp!([plugin as "Plugin*", param_ptr as "char*"] -> f32 as "float" {
             auto param = std::string(param_ptr);
             return plugin->getParameter(param); // MEMS
-        })}
+        })
+        }
     }
     /// Set a named parameter.
     ///
@@ -300,10 +349,12 @@ impl Plugin {
     pub fn set_parameter(&mut self, param: CString, value: f32) {
         let param_ptr = param.as_ptr();
         let mut plugin = self as *mut _;
-        unsafe { cpp!([mut plugin as "Plugin*", param_ptr as "char*", value as "float"] {
+        unsafe {
+            cpp!([mut plugin as "Plugin*", param_ptr as "char*", value as "float"] {
             auto param = std::string(param_ptr);
             plugin->setParameter(param, value); // MEMS
-        })}
+        })
+        }
     }
     /// Get the program settings available in this plugin.
     ///
@@ -312,11 +363,15 @@ impl Plugin {
     /// The programs must have unique names.
     pub fn get_programs(&self) -> Vec<CString> {
         let plugin = self as *const _;
-        let cxxvec: CxxVector<CxxString> = unsafe {CxxVector::from(cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
+        let cxxvec: CxxVector<CxxString> = unsafe {
+            CxxVector::from(
+                cpp!([plugin as "Plugin*"] -> *mut CxxInnerVector as "std::vector<std::string>*" {
             auto v = new std::vector<std::string>();
             *v = plugin->getPrograms();
             return v;
-        }))};
+        }),
+            )
+        };
         let out = cxxvec.to_vec();
         unsafe { cxxvec.delete() };
         return out;
@@ -324,15 +379,17 @@ impl Plugin {
     /// Get the current program.
     pub fn get_current_program(&self) -> CString {
         let plugin = self as *const _;
-        let s = unsafe { cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
+        let s = unsafe {
+            cpp!([plugin as "Plugin*"] -> *mut CxxString as "std::string*" {
                 auto out = new std::string();
                 *out = plugin->getCurrentProgram();
                 return out;
-            }) };
+            })
+        };
         not_null!(s);
         let s = unsafe { &mut *s };
         let out = s.to_c_string();
-        unsafe {s.delete()};
+        unsafe { s.delete() };
         return out;
     }
     /// Select a program.
@@ -341,18 +398,22 @@ impl Plugin {
     pub fn select_program(&mut self, program: CString) {
         let prog_ptr = program.as_ptr();
         let mut plugin = self as *mut _;
-        unsafe { cpp!([mut plugin as "Plugin*", prog_ptr as "char*"] {
+        unsafe {
+            cpp!([mut plugin as "Plugin*", prog_ptr as "char*"] {
             auto prog = std::string(prog_ptr);
             plugin->selectProgram(prog);
-        })};
+        })
+        };
     }
 }
 
 impl Drop for Plugin {
     fn drop(&mut self) {
         let mut plugin = self as *mut _;
-        unsafe { cpp!([mut plugin as "Plugin*"] {
+        unsafe {
+            cpp!([mut plugin as "Plugin*"] {
             delete plugin;
-        })}
+        })
+        }
     }
 }

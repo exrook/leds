@@ -100,19 +100,21 @@ impl PluginLoader {
     }
     /// Returns a reference to the PluginLoader singleton, wrapped in a mutex. Try not to use this
     /// from multiple threads, even though there is a mutex, as the C++ doesn't seem to support it
-    pub unsafe fn get_instance() -> Arc<Mutex<Box<PluginLoader>>> {
-        match HOSTEXT {
-            &None => {
-                let load = cpp!( [] -> *mut PluginLoader as "PluginLoader*" {
-                    return PluginLoader::getInstance();
-                });
-                not_null!(load);
-                let tmp = Box::new(Some(Arc::new(Mutex::new(Box::from_raw(load)))));
-                HOSTEXT = &mut *Box::into_raw(tmp);
-                return PluginLoader::get_instance();
-            }
-            &Some(ref a) => {
-                return a.clone();
+    pub fn get_instance() -> Arc<Mutex<Box<PluginLoader>>> {
+        unsafe {
+            match HOSTEXT {
+                &None => {
+                    let load = cpp!( [] -> *mut PluginLoader as "PluginLoader*" {
+                        return PluginLoader::getInstance();
+                    });
+                    not_null!(load);
+                    let tmp = Box::new(Some(Arc::new(Mutex::new(Box::from_raw(load)))));
+                    HOSTEXT = &mut *Box::into_raw(tmp);
+                    return PluginLoader::get_instance();
+                }
+                &Some(ref a) => {
+                    return a.clone();
+                }
             }
         }
     }
