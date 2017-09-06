@@ -29,7 +29,7 @@ use palette::IntoColor;
 
 use vamp_host::{PluginLoader, Plugin, RealTime};
 
-use set_neopixels::{Pixel, Effect, AuxEffect, set_effect};
+use set_neopixels::{Pixel, Effect, AuxEffect, gen_effect};
 
 mod message;
 use message::Message;
@@ -41,7 +41,7 @@ use multi_net::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, Chan
 
 use bincode::Infinite;
 
-//const num_leds: _ = 427;
+const num_leds: usize = 427;
 
 fn main() {
     let pa = PortAudio::new().unwrap();
@@ -219,6 +219,7 @@ fn main() {
                 //AuxEffect::Offset(50),
                 AuxEffect::FillEdges(150 - (width * (125.0 / 1.0)) as u8),
                 //AuxEffect::FillDouble(61 - (width * 60.0 / 1.0) as u8),
+                num_leds,
             );
             last = out;
             count = (count + 1) % last_points.len();
@@ -245,13 +246,9 @@ fn send_effect(
     effect: Effect,
     aux_color: Option<Pixel>,
     aux_effect: AuxEffect,
+    count: usize,
 ) {
-    let msg = Message {
-        color,
-        effect,
-        aux_color,
-        aux_effect,
-    };
+    let msg = gen_effect(color, effect, aux_color, aux_effect, count);
     let data = bincode::serialize(&msg, Infinite).unwrap();
     handle
         .start_send(ControlPacket::SendData(AssembledDataPacket::new(

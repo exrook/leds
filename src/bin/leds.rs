@@ -19,9 +19,9 @@ use palette::IntoColor;
 
 use vamp_host::{PluginLoader, Plugin, RealTime};
 
-use set_neopixels::{Pixel, Effect, AuxEffect, set_effect};
+use set_neopixels::{Pixel, Effect, AuxEffect, gen_effect, set_pixels4};
 
-//const num_leds: _ = 427;
+const num_leds: usize = 427;
 
 fn main() {
     let mut serial = set_neopixels::setup("/dev/ttyACM0");
@@ -78,7 +78,7 @@ fn main() {
 
     let conv = Arc::new(AtomicUsize::new(0));
     let conv2 = conv.clone();
-    thread::spawn(move || {
+    let t1 = thread::spawn(move || {
         let mut last = 0.0;
         let mut color = Hsv::new(RgbHue::from(0.0), 1.0, 0.0);
         let mut color2 = Hsv::new(RgbHue::from(0.0), 1.0, 0.0);
@@ -174,8 +174,7 @@ fn main() {
             offset = (offset + 1) % 150;
             println!("{:#?}", color);
             println!("{:#?}", rgb);
-            set_effect(
-                &mut serial,
+            let pixels = gen_effect(
                 Pixel {
                     red: (rgb.red.max(0.0) * 255.0) as u8,
                     green: (rgb.green.max(0.0) * 255.0) as u8,
@@ -193,21 +192,28 @@ fn main() {
                 //AuxEffect::Offset(50),
                 AuxEffect::FillEdges(150 - (width * (125.0 / 1.0)) as u8),
                 //AuxEffect::FillDouble(61 - (width * 60.0 / 1.0) as u8),
+                num_leds,
             );
+            set_pixels4(&mut port, &pixels);
             last = out;
             count = (count + 1) % last_points.len();
             last_points[count] = pow_f;
         }
     });
-    loop {
-        let data = vec![stream.read(block_size as u32).unwrap().to_vec()];
-        let time = RealTime::new(0, 0);
-        let feat = plug.process(data, time);
-        //println!("{:#?}", feat.get(&0).unwrap()[0].values[0]);
-        let amplitude = feat.get(&0).unwrap()[0].values[0];
-        conv.store(
-            (amplitude * 2048.0) as usize,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-    }
+    let t2 = thread::spawn(move || {
+        loop {
+            let data = vec![stream.read(block_size as u32).unwrap().to_vec()];
+            let time = RealTime::new(0, 0);
+            let feat = plug.process(data, time);
+            //println!("{:#?}", feat.get(&0).unwrap()[0].values[0]);
+            let amplitude = feat.get(&0).unwrap()[0].values[0];
+            conv.store(
+                (amplitude * 2048.0) as usize,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+        }
+    });
+    println!("PLS HELP");
+    t1.join().unwrap();
+    println!("PLS HALP");
 }

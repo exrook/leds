@@ -24,7 +24,7 @@ use palette::{Hsv, RgbHue, Lch, LabHue};
 use palette::pixel::Srgb;
 use palette::IntoColor;
 
-use set_neopixels::{Pixel, Effect, AuxEffect, set_effect};
+use set_neopixels::{Pixel, Effect, AuxEffect, set_pixels4};
 
 use futures::{Future, Stream, Sink};
 use tokio_core::reactor::Core;
@@ -33,30 +33,27 @@ use multi_net::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, Chan
 mod message;
 use message::Message;
 
+const NUM_LEDS: usize = 427;
+
 fn main() {
-    let message_box = Arc::new(atomic_box::AtomicBox::new(Message {
-        color: Pixel {
-            red: 0,
-            green: 0,
-            blue: 0,
-        },
-        effect: Effect::Constant,
-        aux_effect: AuxEffect::None,
-        aux_color: None,
-    }));
+    let message_box = Arc::new(atomic_box::AtomicBox::new(
+        Message { pixels: vec![Pixel::default(); 427] },
+    ));
     let thread_message_box = message_box.clone();
     thread::spawn(move || {
         let mut serial = set_neopixels::setup("/dev/ttyACM0");
         sleep(Duration::from_secs(1));
         loop {
-            let Message {
-                color,
-                effect,
-                aux_color,
-                aux_effect,
-            } = (*thread_message_box.load()).clone();
-            set_effect(&mut serial, color, effect, aux_color, aux_effect).unwrap();
-            sleep(Duration::from_millis(20));
+            let msg = thread_message_box.load();
+            //let Message {
+            //    color,
+            //    effect,
+            //    aux_color,
+            //    aux_effect,
+            //} = (*thread_message_box.load()).clone();
+            //set_effect_compat(&mut serial, color, effect, aux_color, aux_effect, 427).unwrap();
+            set_pixels4(&mut serial, &msg.pixels).unwrap();
+            //sleep(Duration::from_millis(20));
         }
     });
 
@@ -70,8 +67,8 @@ fn main() {
 
     reactor
         .run(handle.for_each(|p| {
-            println!("Recieved: {:?}", p);
-            println!("\n\n\n\n\n\n");
+            //println!("Recieved: {:?}", p);
+            //println!("\n\n\n\n\n\n");
             match p {
                 RecievedPacket::Data(data) => {
                     match data.channel {
@@ -79,7 +76,7 @@ fn main() {
                             match bincode::deserialize(&data.data) {
                                 Ok(msg) => {
                                     let msg: Message = msg;
-                                    println!("Message: {:?}", msg);
+                                    //println!("Message: {:?}", msg);
                                     message_box.store(msg)
                                 }
                                 Err(_) => {}
