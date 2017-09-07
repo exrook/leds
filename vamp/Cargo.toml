@@ -1,7 +1,7 @@
 [package]
-name = "vamp-host"
+name = "vamp"
 version = "0.1.0"
-authors = ["Jacob Hughes <exrook.j@gmail.com>"]
+authors = ["Jacob Hughes <j@jacobhughes.me>"]
 build = "build.rs"
 
 [dependencies]

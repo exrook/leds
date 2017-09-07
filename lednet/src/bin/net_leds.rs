@@ -41,7 +41,7 @@ fn main() {
     ));
     let thread_message_box = message_box.clone();
     thread::spawn(move || {
-        let mut serial = set_neopixels::setup("/dev/ttyACM0");
+        let mut serial = led_control::setup("/dev/ttyACM0");
         sleep(Duration::from_secs(1));
         loop {
             let msg = thread_message_box.load();

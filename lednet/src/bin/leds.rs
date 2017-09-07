@@ -24,7 +24,7 @@ use led_control::{Pixel, Effect, AuxEffect, gen_effect, set_pixels4};
 const num_leds: usize = 427;
 
 fn main() {
-    let mut serial = set_neopixels::setup("/dev/ttyACM0");
+    let mut serial = led_control::setup("/dev/ttyACM0");
     sleep(Duration::from_secs(1));
     let pa = PortAudio::new().unwrap();
     let devs = pa.devices().unwrap();

@@ -1,5 +1,5 @@
 [root]
-name = "vamp-host"
+name = "vamp"
 version = "0.1.0"
 dependencies = [
  "cpp 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -264,6 +264,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "lednet"
+version = "0.1.0"
+dependencies = [
+ "atomic_box 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "led_control 0.1.0",
+ "multinet 0.1.0",
+ "palette 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "portaudio 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-core 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "vamp 0.1.0",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -341,7 +359,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "multi_net"
+name = "multinet"
 version = "0.1.0"
 dependencies = [
  "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -656,24 +674,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "unicode-xid"
 version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "vamp"
-version = "0.1.0"
-dependencies = [
- "atomic_box 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "led_control 0.1.0",
- "multi_net 0.1.0",
- "palette 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "portaudio 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-core 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "vamp-host 0.1.0",
-]
 
 [[package]]
 name = "vec_map"

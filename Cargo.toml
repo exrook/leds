@@ -1,2 +1,2 @@
 [workspace]
-members = ["led_control", "multinet", "vamp-host", "lednet"]
+members = ["led_control", "multinet", "vamp", "lednet"]
