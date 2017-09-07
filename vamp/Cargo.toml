@@ -8,8 +8,7 @@ portaudio = "0.7"
 palette = "0.2"
 vamp-host = { path = "../vamp-host" }
 set_neopixels = { path = "../set_neopixels", features = ["serde"] }
-#multi_net = { git = "ssh://git@git.jacobhughes.me/exrook/multi_net.git" }
-multi_net = { path = "../../rust/network/" }
+multi_net = { path = "../multi_net" }
 tokio-core = "0.1"
 futures = "0.1"
 serde = "1"

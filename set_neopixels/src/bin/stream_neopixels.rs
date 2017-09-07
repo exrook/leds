@@ -1,7 +1,6 @@
 extern crate set_neopixels;
 #[macro_use]
 extern crate clap;
-extern crate atomic_box;
 
 use std::time::Duration;
 use std::thread::{spawn, sleep};
@@ -12,7 +11,6 @@ use std::sync::Arc;
 use clap::{App, Arg};
 
 use set_neopixels::{Pixel, Effect, AuxEffect, set_effect, setup};
-use atomic_box::AtomicBox;
 
 fn main() {
     let matches = App::new("set_neopixels")

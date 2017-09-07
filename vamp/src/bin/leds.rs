@@ -194,25 +194,23 @@ fn main() {
                 //AuxEffect::FillDouble(61 - (width * 60.0 / 1.0) as u8),
                 num_leds,
             );
-            set_pixels4(&mut port, &pixels);
+            set_pixels4(&mut serial, &pixels);
             last = out;
             count = (count + 1) % last_points.len();
             last_points[count] = pow_f;
         }
     });
-    let t2 = thread::spawn(move || {
-        loop {
-            let data = vec![stream.read(block_size as u32).unwrap().to_vec()];
-            let time = RealTime::new(0, 0);
-            let feat = plug.process(data, time);
-            //println!("{:#?}", feat.get(&0).unwrap()[0].values[0]);
-            let amplitude = feat.get(&0).unwrap()[0].values[0];
-            conv.store(
-                (amplitude * 2048.0) as usize,
-                std::sync::atomic::Ordering::Relaxed,
-            );
-        }
-    });
+    loop {
+        let data = vec![stream.read(block_size as u32).unwrap().to_vec()];
+        let time = RealTime::new(0, 0);
+        let feat = plug.process(data, time);
+        //println!("{:#?}", feat.get(&0).unwrap()[0].values[0]);
+        let amplitude = feat.get(&0).unwrap()[0].values[0];
+        conv.store(
+            (amplitude * 2048.0) as usize,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+    }
     println!("PLS HELP");
     t1.join().unwrap();
     println!("PLS HALP");

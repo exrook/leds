@@ -1,3 +1,4 @@
+extern crate vamp;
 extern crate vamp_host;
 extern crate portaudio;
 extern crate palette;
@@ -31,8 +32,7 @@ use vamp_host::{PluginLoader, Plugin, RealTime};
 
 use set_neopixels::{Pixel, Effect, AuxEffect, gen_effect};
 
-mod message;
-use message::Message;
+use vamp::Message;
 
 use futures::{Future, Stream, Sink};
 use tokio_core::reactor::Core;

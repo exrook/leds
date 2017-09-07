@@ -1,1 +1,2 @@
 [workspace]
+members = ["set_neopixels", "multi_net", "vamp-host", "vamp"]

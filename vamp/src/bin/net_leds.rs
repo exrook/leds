@@ -1,3 +1,4 @@
+extern crate vamp;
 extern crate vamp_host;
 extern crate portaudio;
 extern crate palette;
@@ -30,8 +31,7 @@ use futures::{Future, Stream, Sink};
 use tokio_core::reactor::Core;
 use multi_net::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID};
 
-mod message;
-use message::Message;
+use vamp::Message;
 
 const NUM_LEDS: usize = 427;
 
