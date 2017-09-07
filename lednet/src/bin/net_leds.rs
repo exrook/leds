@@ -1,12 +1,12 @@
+extern crate lednet;
 extern crate vamp;
-extern crate vamp_host;
 extern crate portaudio;
 extern crate palette;
-extern crate set_neopixels;
+extern crate led_control;
 
 extern crate tokio_core;
 extern crate futures;
-extern crate multi_net;
+extern crate multinet;
 
 extern crate serde;
 #[macro_use]
@@ -25,13 +25,13 @@ use palette::{Hsv, RgbHue, Lch, LabHue};
 use palette::pixel::Srgb;
 use palette::IntoColor;
 
-use set_neopixels::{Pixel, Effect, AuxEffect, set_pixels4};
+use led_control::{Pixel, Effect, AuxEffect, set_pixels4};
 
 use futures::{Future, Stream, Sink};
 use tokio_core::reactor::Core;
-use multi_net::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID};
+use multinet::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID};
 
-use vamp::Message;
+use lednet::Message;
 
 const NUM_LEDS: usize = 427;
 

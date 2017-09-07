@@ -1,7 +1,7 @@
-extern crate vamp_host;
+extern crate vamp;
 extern crate portaudio;
 extern crate palette;
-extern crate set_neopixels;
+extern crate led_control;
 
 use std::ffi::CString;
 use std::thread::sleep;
@@ -17,9 +17,9 @@ use palette::{Hsv, RgbHue};
 use palette::pixel::Srgb;
 use palette::IntoColor;
 
-use vamp_host::{PluginLoader, Plugin, RealTime};
+use vamp::{PluginLoader, Plugin, RealTime};
 
-use set_neopixels::{Pixel, Effect, set_effect};
+use led_control::{Pixel, Effect, set_effect};
 
 fn main() {
     let pa = PortAudio::new().unwrap();

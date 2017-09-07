@@ -1,4 +1,4 @@
-extern crate set_neopixels;
+extern crate led_control;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;

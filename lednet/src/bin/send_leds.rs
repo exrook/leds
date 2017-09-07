@@ -1,7 +1,18 @@
-extern crate vamp_host;
+extern crate lednet;
+extern crate vamp;
 extern crate portaudio;
 extern crate palette;
-extern crate set_neopixels;
+extern crate led_control;
+
+extern crate tokio_core;
+extern crate futures;
+extern crate multinet;
+
+extern crate bincode;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate rand;
 
 use std::ffi::CString;
 use std::thread::sleep;
@@ -17,15 +28,21 @@ use palette::{Hsv, RgbHue, Lch, LabHue};
 use palette::pixel::Srgb;
 use palette::IntoColor;
 
-use vamp_host::{PluginLoader, Plugin, RealTime};
+use vamp::{PluginLoader, Plugin, RealTime};
 
-use set_neopixels::{Pixel, Effect, AuxEffect, gen_effect, set_pixels4};
+use led_control::{Pixel, Effect, AuxEffect, gen_effect};
+
+use lednet::Message;
+
+use futures::{Future, Stream, Sink};
+use tokio_core::reactor::Core;
+use multinet::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID, ServerHandle};
+
+use bincode::Infinite;
 
 const num_leds: usize = 427;
 
 fn main() {
-    let mut serial = set_neopixels::setup("/dev/ttyACM0");
-    sleep(Duration::from_secs(1));
     let pa = PortAudio::new().unwrap();
     let devs = pa.devices().unwrap();
 
@@ -78,7 +95,15 @@ fn main() {
 
     let conv = Arc::new(AtomicUsize::new(0));
     let conv2 = conv.clone();
-    let t1 = thread::spawn(move || {
+    thread::spawn(move || {
+        let mut reactor = Core::new().unwrap();
+
+        let (s, mut handle) = Server::new(reactor.handle(), &[0, 0, 0, 0u8].into()).unwrap();
+
+        reactor.handle().spawn(s.map_err(
+            |e| panic!("Error polling server: {:?}", e),
+        ));
+
         let mut last = 0.0;
         let mut color = Hsv::new(RgbHue::from(0.0), 1.0, 0.0);
         let mut color2 = Hsv::new(RgbHue::from(0.0), 1.0, 0.0);
@@ -174,7 +199,8 @@ fn main() {
             offset = (offset + 1) % 150;
             println!("{:#?}", color);
             println!("{:#?}", rgb);
-            let pixels = gen_effect(
+            send_effect(
+                &mut handle,
                 Pixel {
                     red: (rgb.red.max(0.0) * 255.0) as u8,
                     green: (rgb.green.max(0.0) * 255.0) as u8,
@@ -194,10 +220,10 @@ fn main() {
                 //AuxEffect::FillDouble(61 - (width * 60.0 / 1.0) as u8),
                 num_leds,
             );
-            set_pixels4(&mut serial, &pixels);
             last = out;
             count = (count + 1) % last_points.len();
             last_points[count] = pow_f;
+            reactor.turn(Some(Duration::from_millis(10)));
         }
     });
     loop {
@@ -211,7 +237,24 @@ fn main() {
             std::sync::atomic::Ordering::Relaxed,
         );
     }
-    println!("PLS HELP");
-    t1.join().unwrap();
-    println!("PLS HALP");
+}
+
+fn send_effect(
+    handle: &mut ServerHandle,
+    color: Pixel,
+    effect: Effect,
+    aux_color: Option<Pixel>,
+    aux_effect: AuxEffect,
+    count: usize,
+) {
+    let msg = gen_effect(color, effect, aux_color, aux_effect, count);
+    let data = bincode::serialize(&msg, Infinite).unwrap();
+    handle
+        .start_send(ControlPacket::SendData(AssembledDataPacket::new(
+            data,
+            ChannelID::new(42),
+            34
+            //rand::random(),
+        )))
+        .unwrap();
 }

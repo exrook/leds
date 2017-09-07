@@ -1,4 +1,4 @@
-use set_neopixels::{Pixel, Effect, AuxEffect};
+use led_control::{Pixel, Effect, AuxEffect};
 
 //#[derive(Serialize, Deserialize, Debug, Clone)]
 //pub struct Message {

@@ -1,2 +1,2 @@
 [workspace]
-members = ["set_neopixels", "multi_net", "vamp-host", "vamp"]
+members = ["led_control", "multinet", "vamp-host", "lednet"]

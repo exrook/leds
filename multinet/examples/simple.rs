@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate futures;
 extern crate tokio_core;
-extern crate multi_net;
+extern crate multinet;
 
 use futures::{Future, Stream, Sink, Async, future};
 use tokio_core::reactor::Core;
-use multi_net::{Server, ControlPacket, AssembledDataPacket, ChannelID};
+use multinet::{Server, ControlPacket, AssembledDataPacket, ChannelID};
 
 fn main() {
     let mut reactor = Core::new().unwrap();

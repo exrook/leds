@@ -1,4 +1,4 @@
-extern crate set_neopixels;
+extern crate led_control;
 #[macro_use]
 extern crate clap;
 
@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use clap::{App, Arg};
 
-use set_neopixels::{Pixel, Effect, AuxEffect, set_effect, setup};
+use led_control::{Pixel, Effect, AuxEffect, set_effect, setup};
 
 fn main() {
     let matches = App::new("set_neopixels")
