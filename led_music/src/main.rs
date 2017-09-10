@@ -10,8 +10,6 @@ extern crate multinet;
 
 extern crate bincode;
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
 extern crate rand;
 
 #[macro_use]
@@ -30,21 +28,13 @@ use std::panic;
 use portaudio::PortAudio;
 use portaudio::stream::{Parameters, InputSettings};
 
-use palette::{Hsv, RgbHue, Lch, LabHue, Rgb};
-use palette::pixel::Srgb;
-use palette::IntoColor;
+use palette::{Hsv, RgbHue, Rgb};
 
-use vamp::{PluginLoader, Plugin, RealTime};
+use vamp::{PluginLoader, RealTime};
 
-use led_control::{Pixel, Effect, AuxEffect, gen_effect};
+use led_control::{Effect, AuxEffect};
 
-use lednet::Message;
-
-use futures::{Future, Stream, Sink};
 use tokio_core::reactor::Core;
-use multinet::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID, ServerHandle};
-
-use bincode::Infinite;
 
 use clap::{App, Arg};
 
@@ -55,8 +45,6 @@ mod errors {
 }
 
 use errors::*;
-
-const num_leds: usize = 427;
 
 quick_main!(run);
 
@@ -138,27 +126,23 @@ fn run() -> Result<()> {
 
             let mut reactor = Core::new().unwrap();
 
-            //let (s, mut handle) = Server::new(reactor.handle(), [[0, 0, 0, 0u8].into()]).unwrap();
             let ledserver = LedServer::new(&reactor.handle(), addrs).chain_err(
                 || "Error starting led server",
             )?;
 
-            let mut last = 0.0;
             let mut color = Hsv::new(RgbHue::from(0.0), 1.0, 0.0);
             let mut color2 = Hsv::new(RgbHue::from(0.0), 1.0, 0.0);
-            //let mut color2 = Lch::new(50.0f32,128.0,LabHue::from(0.0));
             let mut last_points = vec![0.0; 10];
             let mut count = 0;
             let mut width = 0.0;
             let mut offset: u8 = 0;
-            let mut effect = Effect::Constant;
 
             let mut pixels = vec![Rgb::new(0f32, 0f32, 0f32); 427];
 
             loop {
                 sleep(Duration::from_millis(20));
                 let out = conv2.load(Ordering::Relaxed) as f32;
-                let pow_f = (out * (1.0 / 2048.0));
+                let pow_f = out * (1.0 / 2048.0);
                 let sum: f32 = last_points.iter().sum();
                 let avg = sum / (last_points.len() as f32);
                 let diff_points: Vec<_> = last_points
@@ -176,7 +160,7 @@ fn run() -> Result<()> {
                 color.value = pow_f + color.value * 0.1;
                 width = color.value.max(width * 0.5);
 
-                let mut diff = (pow_f - last_points[count]).max(0.0);
+                let diff = (pow_f - last_points[count]).max(0.0);
 
                 println!("Above avg diff: {}", diff > diff_avg);
                 let points_above: f32 = diff_points
@@ -198,73 +182,17 @@ fn run() -> Result<()> {
                     color.saturation = 0.0;
                     width = (2.0 * avg).max(color.value).min(1.0)
                 }
-                //color.hue = RgbHue::from(0.0);
-                //color.saturation = 0.0;
-                //color.value = color.value * 0.5;
-
-                //color2.hue = RgbHue::from({
-                //    let current = color2.hue.to_positive_degrees() + 360.0;
-                //    let target = color.hue.to_positive_degrees() + 360.0 + 180.0;
-                //    let diff = (target - current);
-                //    (current - 360.0) + (diff * 0.7)
-                //});
-                //color2.hue = color.hue + RgbHue::from(180.0);
                 color2.hue = color2.hue + RgbHue::from(1.0);
-                //color.hue = RgbHue::from(5f32);
-                //color2.hue = RgbHue::from(5f32);
-                //color.value = color.value * 0.05;
-                //color2.hue = RgbHue::from(345f32);
                 color2.saturation = 1.0f32;
-                //color2.hue = RgbHue::from(0.0);
-                //color2.hue = color2.hue + RgbHue::from(0.1);
-                //color2.value = 0.2 - (color.value*0.1);
-                //color2.hue = RgbHue::from(5f32);
                 color2.value = 0.9 - (color.value * 0.8);
                 color2.value *= 0.5;
-                //color2.value = color2.value * 0.1;
-                //color2.saturation = 0.0;
-                //color2.l = 1.0 as f32;
 
-                let rgb = color.into_rgb();
-                let rgb2 = color2.into_rgb();
-                effect = {
-                    //if avg > 0.5 {
-                    //Effect::Width((width * (125.0 / 1.0)) as u8 + 25)
-                    Effect::Width(width)
-                    //} else if avg > 0.25 || (match effect { Effect::DoubleWidth(_) => true, _ => false } && avg > 0.2) {
-                    //Effect::DoubleWidth((width * (70.0 / 1.0)) as u8 + 5)
-                    //} else {
-                    //Effect::QuadWidth((width*(35.5/1.0)).min(33.0) as u8 + 2)
-                    //  //Effect::Edges((width*(140.0/1.0)) as u8 + 10)
-                    //}
-                };
                 offset = (offset + 1) % 150;
-                println!("{:#?}", color);
-                println!("{:#?}", rgb);
-                //send_effect(
-                //    &mut handle,
-                //    Pixel {
-                //        red: (rgb.red.max(0.0) * 255.0) as u8,
-                //        green: (rgb.green.max(0.0) * 255.0) as u8,
-                //        blue: (rgb.blue.max(0.0) * 255.0) as u8,
-                //    },
-                //    effect,
-                //    Some(Pixel {
-                //        red: (rgb2.red.max(0.0) * 255.0) as u8,
-                //        green: (rgb2.green.max(0.0) * 255.0) as u8,
-                //        blue: (rgb2.blue.max(0.0) * 255.0) as u8,
-                //    }),
-                //    //AuxEffect::None
-                //    //AuxEffect::Offset(37 + (color.hue.to_positive_degrees()*(75.0/360.0)) as u8)
-                //    //AuxEffect::Offset(255),
-                //    //AuxEffect::Offset(50),
-                //    AuxEffect::FillEdges(150 - (width * (125.0 / 1.0)) as u8),
-                //    //AuxEffect::FillDouble(61 - (width * 60.0 / 1.0) as u8),
-                //    num_leds,
-                //);
+
                 for p in pixels.iter_mut() {
                     *p = Rgb::new(0.0, 0.0, 0.0);
                 }
+
                 for (i, chunk) in pixels.chunks_mut(61).enumerate() {
                     let america = match i % 3 {
                         0 => Rgb::new(1.0, 0.0, 0.0),
@@ -272,7 +200,6 @@ fn run() -> Result<()> {
                         2 => Rgb::new(0.0, 0.0, 1.0),
                         _ => unreachable!(),
                     } * color.value;
-                    let color = rgb;
                     let width = (width * 0.85).powf(0.5);
                     let effect = Effect::Width(width);
                     let aux_effect = AuxEffect::FillEdges((1.0 - width).max(0.0));
@@ -283,16 +210,12 @@ fn run() -> Result<()> {
                         aux_effect,
                         chunk,
                     );
-                    //for p in chunk {
-                    //    *p = color;
-                    //}
                 }
                 ledserver.store(pixels.clone().into_iter().map(|p| p.to_pixel()).collect());
-                //send_vec(&mut handle, &pixels);
-                last = out;
+
                 count = (count + 1) % last_points.len();
                 last_points[count] = pow_f;
-                reactor.turn(Some(Duration::from_millis(10)));
+                reactor.turn(Some(Duration::from_millis(5)));
             }
         }) {
             Ok(_) => {}
@@ -315,43 +238,6 @@ fn run() -> Result<()> {
     }
 }
 
-//fn send_effect(
-//    handle: &mut ServerHandle,
-//    color: Pixel,
-//    effect: OldEffect,
-//    aux_color: Option<Pixel>,
-//    aux_effect: OldAuxEffect,
-//    count: usize,
-//) {
-//    let msg = gen_effect(color, effect, aux_color, aux_effect, count);
-//    let data = bincode::serialize(&msg, Infinite).unwrap();
-//    handle
-//        .start_send(ControlPacket::SendData(AssembledDataPacket::new(
-//            data,
-//            ChannelID::new(42),
-//            34
-//            //rand::random(),
-//        )))
-//        .unwrap();
-//}
-
-fn send_vec<T: AsRef<[P]>, P: Into<Rgb> + Copy>(handle: &mut ServerHandle, leds: T) {
-    let pixels = leds.as_ref()
-        .into_iter()
-        .map(|pixel| (*pixel).into().to_pixel())
-        .collect();
-    let msg = Message { pixels };
-    let data = bincode::serialize(&msg, Infinite).unwrap();
-    handle
-        .start_send(ControlPacket::SendData(AssembledDataPacket::new(
-            data,
-            ChannelID::new(42),
-            34
-            //rand::random(),
-        )))
-        .unwrap();
-}
-
 fn gen_effect_pixels(
     color: Rgb,
     effect: Effect,
@@ -366,7 +252,7 @@ fn gen_effect_pixels(
                 *p = color;
             }
         }
-        Effect::Flash(rate) => unimplemented!("Flash doesn't make sense with the new system"),
+        Effect::Flash(_) => unimplemented!("Flash doesn't make sense with the new system"),
         Effect::Width(width) => {
             println!(
                 "Width: {:?}, Floor: {:?}, Original Width: {:?}",
