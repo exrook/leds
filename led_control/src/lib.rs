@@ -2,6 +2,10 @@ extern crate serial;
 #[cfg(feature = "serde")]
 #[macro_use]
 extern crate serde;
+#[cfg(feature = "palette")]
+extern crate palette;
+#[cfg(feature = "palette")]
+extern crate num_traits;
 
 use std::io;
 
@@ -12,6 +16,11 @@ use std::thread::sleep;
 use std::ffi::OsStr;
 
 use std::f64::consts::PI;
+
+#[cfg(feature = "palette")]
+use palette::pixel::RgbPixel;
+#[cfg(feature = "palette")]
+use num_traits::Float;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Default, Copy)]
@@ -31,9 +40,31 @@ impl Pixel {
     }
 }
 
+#[cfg(feature = "palette")]
+impl<T: Float> RgbPixel<T> for Pixel {
+    fn from_rgba(red: T, green: T, blue: T, alpha: T) -> Self {
+        let (red, green, blue): (u8, u8, u8) = RgbPixel::from_rgba(red, green, blue, alpha);
+        Pixel { red, green, blue }
+    }
+    fn to_rgba(&self) -> (T, T, T, T) {
+        let Pixel { red, green, blue } = *self;
+        (red, green, blue).to_rgba()
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone)]
 pub enum Effect {
+    Constant,
+    Flash(f32),
+    Width(f32),
+    DoubleWidth(f32),
+    QuadWidth(f32),
+    Edges(f32),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum OldEffect {
     Constant,
     Flash(u8),
     SetPix(u8),
@@ -46,6 +77,17 @@ pub enum Effect {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone)]
 pub enum AuxEffect {
+    None,
+    Offset(f32),
+    FillLeft(f32),
+    FillCenter(f32),
+    FillRight(f32),
+    FillEdges(f32),
+    FillDouble(f32),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum OldAuxEffect {
     None,
     Offset(u8),
     FillLeft(u8),
@@ -141,18 +183,18 @@ pub fn set_pixels4<T: SerialPort>(port: &mut T, pixels: &[Pixel]) -> io::Result<
 pub fn set_effect_compat<T: SerialPort>(
     port: &mut T,
     color: Pixel,
-    effect: Effect,
+    effect: OldEffect,
     color2: Option<Pixel>,
-    aux_effect: AuxEffect,
+    aux_effect: OldAuxEffect,
     count: usize,
 ) -> io::Result<()> {
     set_pixels4(port, &gen_effect(color, effect, color2, aux_effect, count))
 }
 pub fn gen_effect(
     color: Pixel,
-    effect: Effect,
+    effect: OldEffect,
     color2: Option<Pixel>,
-    aux_effect: AuxEffect,
+    aux_effect: OldAuxEffect,
     count: usize,
 ) -> Vec<Pixel> {
     let mut pixels = vec![Default::default(); count];
@@ -162,23 +204,23 @@ pub fn gen_effect(
         blue: 0,
     };
     match effect {
-        Effect::Constant => {
+        OldEffect::Constant => {
             for p in pixels.iter_mut() {
                 *p = color;
             }
         }
-        Effect::Flash(rate) => unimplemented!("Flash doesn't make sense with the new system"),
-        Effect::SetPix(num) => {
+        OldEffect::Flash(rate) => unimplemented!("Flash doesn't make sense with the new system"),
+        OldEffect::SetPix(num) => {
             pixels[num as usize] = color;
         }
-        Effect::Width(width) => {
+        OldEffect::Width(width) => {
             for p in pixels[((count / 2) - width as usize)..((count / 2) + width as usize)]
                 .iter_mut()
             {
                 *p = color;
             }
         }
-        Effect::DoubleWidth(width) => {
+        OldEffect::DoubleWidth(width) => {
             for p in pixels[((count / 4) - width as usize)..((count / 4) + width as usize)]
                 .iter_mut()
             {
@@ -191,7 +233,7 @@ pub fn gen_effect(
                 *p = color;
             }
         }
-        Effect::QuadWidth(width) => {
+        OldEffect::QuadWidth(width) => {
             for p in pixels[((count / 8) - width as usize)..((count / 8) + width as usize)]
                 .iter_mut()
             {
@@ -216,7 +258,7 @@ pub fn gen_effect(
                 *p = color;
             }
         }
-        Effect::Edges(width) => {
+        OldEffect::Edges(width) => {
             for p in pixels[..width as usize].iter_mut() {
                 *p = color;
             }
@@ -228,29 +270,29 @@ pub fn gen_effect(
 
     let color2 = color2.unwrap_or_else(Pixel::default);
     match aux_effect {
-        AuxEffect::None => {}
-        AuxEffect::Offset(amount) => {
+        OldAuxEffect::None => {}
+        OldAuxEffect::Offset(amount) => {
             let p2 = pixels.clone();
             for (i, p) in pixels.iter_mut().enumerate() {
                 *p = p2[(i + (amount as usize)) % count];
             }
         }
-        AuxEffect::FillLeft(len) => {
+        OldAuxEffect::FillLeft(len) => {
             for p in pixels[..len as usize].iter_mut() {
                 *p = color2
             }
         }
-        AuxEffect::FillCenter(len) => {
+        OldAuxEffect::FillCenter(len) => {
             for p in pixels[(count / 2) - len as usize..(count / 2) + len as usize].iter_mut() {
                 *p = color2
             }
         }
-        AuxEffect::FillRight(len) => {
+        OldAuxEffect::FillRight(len) => {
             for p in pixels[count - len as usize..].iter_mut() {
                 *p = color2
             }
         }
-        AuxEffect::FillEdges(len) => {
+        OldAuxEffect::FillEdges(len) => {
             for p in pixels[..len as usize].iter_mut() {
                 *p = color2
             }
@@ -258,7 +300,7 @@ pub fn gen_effect(
                 *p = color2
             }
         }
-        AuxEffect::FillDouble(len) => {
+        OldAuxEffect::FillDouble(len) => {
             // fill left
             for p in pixels[..len as usize].iter_mut() {
                 *p = color2
@@ -279,33 +321,33 @@ pub fn gen_effect(
 pub fn set_effect<T: SerialPort>(
     port: &mut T,
     color: Pixel,
-    effect: Effect,
+    effect: OldEffect,
     color2: Option<Pixel>,
-    aux_effect: AuxEffect,
+    aux_effect: OldAuxEffect,
 ) -> io::Result<()> {
     let mut bytes = Vec::new();
     bytes.append(&mut vec![color.red, color.green, color.blue]);
     bytes.append(&mut match effect {
-        Effect::Constant => vec![0, 0],
-        Effect::Flash(rate) => vec![1, rate],
-        Effect::SetPix(num) => vec![2, num],
-        Effect::Width(width) => vec![3, width],
-        Effect::DoubleWidth(width) => vec![4, width],
-        Effect::QuadWidth(width) => vec![5, width],
-        Effect::Edges(width) => vec![6, width],
+        OldEffect::Constant => vec![0, 0],
+        OldEffect::Flash(rate) => vec![1, rate],
+        OldEffect::SetPix(num) => vec![2, num],
+        OldEffect::Width(width) => vec![3, width],
+        OldEffect::DoubleWidth(width) => vec![4, width],
+        OldEffect::QuadWidth(width) => vec![5, width],
+        OldEffect::Edges(width) => vec![6, width],
     });
     bytes.append(&mut match color2 {
         Some(color2) => vec![color2.red, color2.green, color2.blue],
         None => vec![0, 0, 0],
     });
     bytes.append(&mut match aux_effect {
-        AuxEffect::None => vec![0, 0],
-        AuxEffect::Offset(amount) => vec![1, amount],
-        AuxEffect::FillLeft(len) => vec![2, len],
-        AuxEffect::FillCenter(len) => vec![3, len],
-        AuxEffect::FillRight(len) => vec![4, len],
-        AuxEffect::FillEdges(len) => vec![5, len],
-        AuxEffect::FillDouble(len) => vec![6, len],
+        OldAuxEffect::None => vec![0, 0],
+        OldAuxEffect::Offset(amount) => vec![1, amount],
+        OldAuxEffect::FillLeft(len) => vec![2, len],
+        OldAuxEffect::FillCenter(len) => vec![3, len],
+        OldAuxEffect::FillRight(len) => vec![4, len],
+        OldAuxEffect::FillEdges(len) => vec![5, len],
+        OldAuxEffect::FillDouble(len) => vec![6, len],
     });
     println!("Setting effect {:#?}, color: {:?}", effect, color);
     try!(port.write_all(&bytes));

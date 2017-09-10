@@ -7,6 +7,11 @@ authors = ["Jacob Hughes <j@jacobhughes.me>"]
 serial = "0.3"
 clap = { version = "2.23", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }
+palette = { version = "0.2", optional = true }
+num-traits = { version = "^0.1.40", optional = true }
+
+[features]
+palette-traits = ["palette", "num-traits"]
 
 [[bin]]
 name = "set_leds"

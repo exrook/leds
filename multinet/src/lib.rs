@@ -105,9 +105,12 @@ impl std::fmt::Debug for Server {
 }
 
 impl Server {
-    pub fn new(handle: reactor::Handle, addr: &Ipv4Addr) -> Result<(Self, ServerHandle)> {
-        let addr = addr.clone();
-        let sock_addr = (addr, 5338u16).into();
+    pub fn new<T: AsRef<[Ipv4Addr]>>(
+        handle: reactor::Handle,
+        addrs: T,
+    ) -> Result<(Self, ServerHandle)> {
+        //let addr = addr.clone();
+        let sock_addr = ([0, 0, 0, 0], 5338u16).into();
         let group_addr: SocketAddrV4 = SocketAddrV4::new([239, 53, 38, 42u8].into(), 5338);
         //let group_addr: SocketAddrV4 = SocketAddrV4::new([80, 53, 38, 42u8].into(), 5338);
         let (client_send, server_recv) = unbounded();
@@ -131,16 +134,18 @@ impl Server {
         )?;
         let sock = UdpSocket::from_socket(
             sock_builder.bind(&sock_addr).chain_err(|| {
-                format!("Error binding socket to {}", addr)
+                format!("Error binding socket to {}", sock_addr)
             })?,
             &handle,
         ).chain_err(|| "Unable to create Tokio socket")?;
         sock.set_multicast_loop_v4(true).chain_err(
             || "Unable to set multicast_loop_v4",
         )?;
-        sock.join_multicast_v4(group_addr.ip(), &addr).chain_err(
-            || "Error joining multicast group",
-        )?;
+        for addr in addrs.as_ref() {
+            sock.join_multicast_v4(group_addr.ip(), &addr).chain_err(
+                || "Error joining multicast group",
+            )?;
+        }
         Ok((
             Self {
                 addr: sock_addr,
