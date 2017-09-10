@@ -4,10 +4,7 @@ version = "0.1.0"
 authors = ["Jacob Hughes <j@jacobhughes.me>"]
 
 [dependencies]
-portaudio = "0.7"
-palette = "0.2"
-vamp = { path = "../vamp" }
-led_control = { path = "../led_control", features = ["serde", "palette-traits"] }
+led_control = { path = "../led_control", features = ["serde"] }
 multinet = { path = "../multinet" }
 tokio-core = "0.1"
 futures = "0.1"
@@ -15,6 +12,4 @@ serde = "1"
 serde_derive = "1"
 bincode = "0.8"
 atomic_box = "^0.1.1"
-rand = "0.3"
 error-chain = "0.11"
-clap = "2"

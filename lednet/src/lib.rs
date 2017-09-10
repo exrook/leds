@@ -14,12 +14,11 @@ extern crate led_control;
 #[macro_use]
 extern crate futures;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::net::Ipv4Addr;
 
 use tokio_core::reactor::Handle;
-use futures::{Stream, Sink, Future, future, Poll, Async, AsyncSink};
+use futures::{Stream, Sink, Future, future, Async, AsyncSink};
 use futures::task::AtomicTask;
 
 use atomic_box::AtomicBox;
@@ -28,7 +27,7 @@ use bincode::Infinite;
 
 use led_control::Pixel;
 
-use multinet::{Server, ServerHandle, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID};
+use multinet::{Server, ControlPacket, AssembledDataPacket, RecievedPacket, ChannelID};
 
 pub mod errors {
     error_chain!{}
