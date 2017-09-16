@@ -115,15 +115,14 @@ impl Server {
         //let group_addr: SocketAddrV4 = SocketAddrV4::new([80, 53, 38, 42u8].into(), 5338);
         let (client_send, server_recv) = unbounded();
         // TODO: Find out why the first packet sent is ignored
-        UnboundedSender::send(
-            &client_send,
-            ControlPacket::SendData(AssembledDataPacket {
+        &client_send
+            .unbounded_send(ControlPacket::SendData(AssembledDataPacket {
                 channel: ChannelID::new(54238503),
                 data: vec![0].into(),
                 epoch: 0,
                 msg_id: 0,
-            }),
-        ).chain_err(|| "Error injecting first packet")?;
+            }))
+            .chain_err(|| "Error injecting first packet")?;
         let (server_send, client_recv) = unbounded();
 
         let sock_builder = UdpBuilder::new_v4().chain_err(

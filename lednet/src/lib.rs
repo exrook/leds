@@ -15,6 +15,8 @@ extern crate led_control;
 extern crate futures;
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::net::Ipv4Addr;
 
 use tokio_core::reactor::Handle;
@@ -40,6 +42,7 @@ pub use message::Message;
 pub struct LedServer {
     data: Arc<AtomicBox<Vec<Pixel>>>,
     task: Arc<AtomicTask>,
+    nonlocal: Arc<AtomicBool>,
 }
 
 impl LedServer {
@@ -49,10 +52,12 @@ impl LedServer {
         )?;
         let data = Arc::new(AtomicBox::new(vec![]));
         let task = Arc::new(AtomicTask::new());
+        let nonlocal = Arc::new(AtomicBool::new(false));
         let (mut sink, stream) = h.split();
         handle.spawn(s.map_err(|_| ()));
         handle.spawn(stream.map_err(|_| panic!()).for_each({
             let data_box = data.clone();
+            let nonlocal = nonlocal.clone();
             move |p| {
                 //println!("Recieved: {:?}", p);
                 //println!("\n\n\n\n\n\n");
@@ -64,7 +69,8 @@ impl LedServer {
                                     Ok(msg) => {
                                         let msg: Message = msg;
                                         //println!("Message: {:?}", msg);
-                                        data_box.store(msg.pixels)
+                                        data_box.store(msg.pixels);
+                                        nonlocal.store(true, Ordering::Release);
                                     }
                                     Err(_) => {}
                                 }
@@ -99,6 +105,7 @@ impl LedServer {
         Ok(Self {
             data,
             task: task,
+            nonlocal
             //cond: AtomicBool::new(false),
         })
     }
@@ -107,7 +114,14 @@ impl LedServer {
     }
     pub fn store(&self, pixels: Vec<Pixel>) {
         self.data.store(pixels);
+        self.nonlocal.store(false, Ordering::Release);
         self.task.notify();
         //self.cond.store(true, Ordering::Release);
+    }
+    pub fn load_nonlocal(&self) -> Option<Arc<Vec<Pixel>>> {
+        match self.nonlocal.load(Ordering::Acquire) {
+            true => Some(self.data.load()),
+            false => None,
+        }
     }
 }

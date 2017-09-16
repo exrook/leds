@@ -16,6 +16,8 @@ extern crate rand;
 extern crate error_chain;
 extern crate clap;
 
+extern crate probability;
+
 use std::ffi::CString;
 use std::thread::sleep;
 use std::thread;
@@ -24,11 +26,13 @@ use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::Arc;
 use std::net::Ipv4Addr;
 use std::panic;
+use std::f32::consts::PI;
 
 use portaudio::PortAudio;
 use portaudio::stream::{Parameters, InputSettings};
 
-use palette::{Hsv, RgbHue, Rgb};
+use palette::{Hsv, RgbHue, Rgb, Hue, IntoColor, FromColor};
+use palette::gradient::Gradient;
 
 use vamp::{PluginLoader, RealTime};
 
@@ -39,6 +43,8 @@ use tokio_core::reactor::Core;
 use clap::{App, Arg};
 
 use lednet::LedServer;
+
+use probability::distribution::{Continuous, Distribution, Gaussian};
 
 mod errors {
     error_chain!{}
@@ -180,7 +186,8 @@ fn run() -> Result<()> {
                     color.hue = color.hue + RgbHue::from(avg * 4.0 * 90.0);
                     color2.hue = color2.hue + RgbHue::from(avg * 1.0 * 90.0);
                     color.saturation = 0.0;
-                    width = (2.0 * avg).max(color.value).min(1.0)
+                    width = (2.0 * avg).max(color.value).min(1.0);
+                    //color.value *= 0.8;
                 }
                 color2.hue = color2.hue + RgbHue::from(1.0);
                 color2.saturation = 1.0f32;
@@ -193,23 +200,167 @@ fn run() -> Result<()> {
                     *p = Rgb::new(0.0, 0.0, 0.0);
                 }
 
+                let america_gradient = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
+                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
+                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
+                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
+                ]);
+                let rainbow_gradient = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(180.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(360.0), 1.0, 1.0),
+                ]);
+                let reverse_double_gradient = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(10.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                ]);
+                let double_rainbow_gradient = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(90.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(180.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(270.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(300.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(270.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(180.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(90.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                ]);
+                let gmu_gradient = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(120.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(120.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(52.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(52.0), 1.0, 1.0),
+                ]);
+                let orange_gradient = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(30.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(30.0), 1.0, 1.0),
+                ]);
+                let red_blue = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(300.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(300.0), 1.0, 1.0),
+                ]);
+                let red_green = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(120.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(120.0), 1.0, 1.0),
+                ]);
+                let blue_blue = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(280.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(200.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(280.0), 1.0, 1.0),
+                ]);
+                let red_pink = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(340.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(340.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                ]);
+                let mut america_gradient_vals = america_gradient.take(61 * 3).cycle();
                 for (i, chunk) in pixels.chunks_mut(61).enumerate() {
                     let america = match i % 3 {
                         0 => Rgb::new(1.0, 0.0, 0.0),
                         1 => Rgb::new(1.0, 0.5, 0.75),
                         2 => Rgb::new(0.0, 0.0, 1.0),
                         _ => unreachable!(),
+                    } * avg;
+                    let mexico = match i % 2 {
+                        0 => Rgb::new(1.0, 0.0, 0.0),
+                        1 => Rgb::new(1.0, 0.5, 0.0),
+                        _ => unreachable!(),
                     } * color.value;
-                    let width = (width * 0.85).powf(0.5);
+                    let double_rainbow = match i % 2 {
+                        0 => color,
+                        1 => color.shift_hue(RgbHue::from(180.0)),
+                        _ => unreachable!(),
+                    };
+                    let quad_rainbow = match i % 4 {
+                        0 => color,
+                        1 => color.shift_hue(RgbHue::from(90.0)),
+                        2 => color.shift_hue(RgbHue::from(180.0)),
+                        3 => color.shift_hue(RgbHue::from(270.0)),
+                        _ => unreachable!(),
+                    };
+                    let width = (width * 0.85).powf(0.5) * 0.8 + 0.2;
                     let effect = Effect::Width(width);
                     let aux_effect = AuxEffect::FillEdges((1.0 - width).max(0.0));
-                    gen_effect_pixels(
-                        america,
-                        effect,
-                        Some(Rgb::new(0.0, 0.0, 0.0)),
-                        aux_effect,
-                        chunk,
-                    );
+                    let mode = 2;
+                    let mut america_gradient_vals: Vec<_> =
+                        america_gradient_vals.by_ref().take(chunk.len()).collect();
+                    match mode {
+                        0 => {
+                            gen_effect_pixels(
+                                //Some(america),
+                                double_rainbow_gradient
+                                    .take(61)
+                                    .skip((61.0 / 2.0 - (width * 61.0 / 2.0)).ceil() as usize)
+                                    .map(|mut c| {
+                                        //c.value = color.value;
+                                        c.value = avg;
+                                        c.value = (c.value * 0.8 + 0.2);
+                                        //c.saturation = color.saturation;
+                                        c
+                                    })
+                                    .collect::<Vec<_>>(),
+                                effect,
+                                Some(vec![Rgb::new(0.0, 0.0, 0.0)]),
+                                aux_effect,
+                                chunk,
+                            )
+                        }
+                        1 => {
+                            let mut america_gradient_vals = america_gradient.take(chunk.len());
+                            for ((n, p), grad) in chunk.into_iter().enumerate().zip(
+                                america_gradient_vals.by_ref(),
+                            )
+                            {
+                                let n = i * 61 + n;
+                                *p = grad.into();
+                            }
+                        }
+                        2 => {
+                            let distr = Gaussian::new(0.5, width as f64 / 4.0);
+                            gen_effect_function(chunk, |pos, len, old_c: Rgb| {
+                                let mut c = double_rainbow_gradient.get(pos);
+                                //c.value *= distr.density(pos as f64) as f32 *
+                                //    (color.value.powf(0.5));
+                                //c.value *=
+                                //    (0.5 - (distr.distribution(pos as f64) as f32 - 0.5).abs()) *
+                                //        2.0 *
+                                //        (color.value.powf(0.5));
+                                let cos_curve = (PI * 2.0 * (pos - 0.5)).cos() * 0.5 + 0.5;
+                                let scale = (cos_curve - (color.value)) * (1.0 - color.value);
+                                c.value *= scale.max(0.0);
+                                println!(
+                                    "color.value: {}, pos: {}, cos_curve: {}, scale: {}, c.value: {}",
+                                    color.value,
+                                    pos,
+                                    cos_curve,
+                                    scale.max(0.0),
+                                    c.value
+                                );
+                                c
+                            })
+                        }
+                        _ => unimplemented!(),
+                    };
                 }
                 ledserver.store(pixels.clone().into_iter().map(|p| p.to_pixel()).collect());
 
@@ -238,18 +389,42 @@ fn run() -> Result<()> {
     }
 }
 
-fn gen_effect_pixels(
-    color: Rgb,
+fn gen_effect_function<
+    COut: Into<CVec>,
+    CIn: From<CVec>,
+    F: FnMut(f32, usize, CIn) -> COut,
+    CVec: Clone,
+>(
+    v: &mut [CVec],
+    mut f: F,
+) {
+    let len = v.len();
+    for (i, c) in v.iter_mut().enumerate() {
+        *c = f(i as f32 / len as f32, len, CIn::from(c.clone())).into();
+    }
+}
+
+fn gen_effect_pixels<
+    G1: IntoIterator<Item = C1, IntoIter = I1>,
+    I1: Clone + Iterator<Item = C1>,
+    C1: IntoColor<f32>,
+    G2: IntoIterator<Item = C2, IntoIter = I2>,
+    I2: Clone + Iterator<Item = C2>,
+    C2: IntoColor<f32> + Default,
+>(
+    color: G1,
     effect: Effect,
-    color2: Option<Rgb>,
+    color2: Option<G2>,
     aux_effect: AuxEffect,
     pixels: &mut [Rgb],
 ) {
     let count = pixels.len();
+    let mut color = color.into_iter().cycle().map(|c| c.into_rgb());
+    let mut color2 = color2.map(|c| c.into_iter().cycle().map(IntoColor::into_rgb));
     match effect {
         Effect::Constant => {
             for p in pixels.iter_mut() {
-                *p = color;
+                *p = color.next().unwrap();
             }
         }
         Effect::Flash(_) => unimplemented!("Flash doesn't make sense with the new system"),
@@ -265,7 +440,7 @@ fn gen_effect_pixels(
             for p in pixels[((count / 2) - width as usize)..((count / 2) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
         }
         Effect::DoubleWidth(width) => {
@@ -273,13 +448,13 @@ fn gen_effect_pixels(
             for p in pixels[((count / 4) - width as usize)..((count / 4) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
             for p in pixels[((count * 3 / 4) - width as usize)..
                                 ((count * 3 / 4) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
         }
         Effect::QuadWidth(width) => {
@@ -287,39 +462,39 @@ fn gen_effect_pixels(
             for p in pixels[((count / 8) - width as usize)..((count / 8) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
             for p in pixels[((count * 3 / 8) - width as usize)..
                                 ((count * 3 / 8) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
             for p in pixels[((count * 5 / 8) - width as usize)..
                                 ((count * 5 / 8) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
             for p in pixels[((count * 7 / 8) - width as usize)..
                                 ((count * 7 / 8) + width as usize)]
                 .iter_mut()
             {
-                *p = color;
+                *p = color.next().unwrap();
             }
         }
         Effect::Edges(width) => {
             let width = width * count as f32;
             for p in pixels[..width as usize].iter_mut() {
-                *p = color;
+                *p = color.next().unwrap();
             }
             for p in pixels[count - width as usize..].iter_mut() {
-                *p = color;
+                *p = color.next().unwrap();
             }
         }
     };
 
-    let color2 = color2.unwrap_or_else(Default::default);
+    //let color2 = color2.unwrap_or_else(Some(C2::default()).into_iter().cycle());
     match aux_effect {
         AuxEffect::None => {}
         AuxEffect::Offset(amount) => {
@@ -332,18 +507,27 @@ fn gen_effect_pixels(
             let len = len * count as f32;
             for p in pixels[..len as usize].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
         }
         AuxEffect::FillCenter(len) => {
             let len = len * count as f32;
             for p in pixels[(count / 2) - len as usize..(count / 2) + len as usize].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
         }
         AuxEffect::FillRight(len) => {
             let len = len * count as f32;
             for p in pixels[count - len as usize..].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
         }
         AuxEffect::FillEdges(len) => {
@@ -357,9 +541,15 @@ fn gen_effect_pixels(
             let len = len.min(1.0) * 0.5 * count as f32;
             for p in pixels[..len as usize].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
             for p in pixels[count - len as usize..].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
         }
         AuxEffect::FillDouble(len) => {
@@ -367,14 +557,23 @@ fn gen_effect_pixels(
             // fill left
             for p in pixels[..len as usize].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
             // fill center
             for p in pixels[(count / 2) - len as usize..(count / 2) + len as usize].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
             // fill right
             for p in pixels[count - len as usize..].iter_mut() {
                 *p = color2
+                    .as_mut()
+                    .map(|x| x.next().unwrap())
+                    .unwrap_or_default();
             }
         }
     };

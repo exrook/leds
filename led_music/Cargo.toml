@@ -19,3 +19,4 @@ rand = "0.3"
 error-chain = "0.11"
 clap = "2"
 lednet = { path = "../lednet" }
+probability = "0.15"

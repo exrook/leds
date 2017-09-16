@@ -163,7 +163,10 @@ impl DataPacketAssembly {
         }
     }
     fn add(&mut self, packet: DataPacket) -> Option<AssembledDataPacket> {
-        assert!(self.msg_len == packet.msg_len);
+        if self.msg_len != packet.msg_len {
+            println!("Packet with invalid len recieved: {:?}", packet);
+            return None;
+        }
         let seq = packet.msg_seq;
         let channel = packet.channel;
         let epoch = packet.epoch;

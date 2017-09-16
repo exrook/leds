@@ -23,7 +23,7 @@ use palette::pixel::RgbPixel;
 use num_traits::Float;
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, Default, Copy)]
+#[derive(Clone, Debug, Default, Copy, Eq, PartialEq)]
 pub struct Pixel {
     pub red: u8,
     pub green: u8,
