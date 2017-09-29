@@ -145,6 +145,8 @@ fn run() -> Result<()> {
 
             let mut pixels = vec![Rgb::new(0f32, 0f32, 0f32); 427];
 
+            let mut counter = 0.0;
+
             loop {
                 sleep(Duration::from_millis(20));
                 let out = conv2.load(Ordering::Relaxed) as f32;
@@ -203,13 +205,13 @@ fn run() -> Result<()> {
                 let america_gradient = Gradient::new(vec![
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
+                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
+                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
+                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
-                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
-                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
-                    Hsv::new(RgbHue::from(328.0), 0.5, 1.0),
-                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
-                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
-                    Hsv::new(RgbHue::from(240.0), 1.0, 1.0),
                 ]);
                 let rainbow_gradient = Gradient::new(vec![
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
@@ -265,6 +267,11 @@ fn run() -> Result<()> {
                     Hsv::new(RgbHue::from(200.0), 1.0, 1.0),
                     Hsv::new(RgbHue::from(280.0), 1.0, 1.0),
                 ]);
+                let red_blue = Gradient::new(vec![
+                    Hsv::new(RgbHue::from(280.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
+                    Hsv::new(RgbHue::from(280.0), 1.0, 1.0),
+                ]);
                 let red_pink = Gradient::new(vec![
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
@@ -274,6 +281,7 @@ fn run() -> Result<()> {
                     Hsv::new(RgbHue::from(0.0), 1.0, 1.0),
                 ]);
                 let mut america_gradient_vals = america_gradient.take(61 * 3).cycle();
+                let chunks_len = pixels.len() / 61;
                 for (i, chunk) in pixels.chunks_mut(61).enumerate() {
                     let america = match i % 3 {
                         0 => Rgb::new(1.0, 0.0, 0.0),
@@ -337,8 +345,15 @@ fn run() -> Result<()> {
                         }
                         2 => {
                             let distr = Gaussian::new(0.5, width as f64 / 4.0);
+                            let c = rainbow_gradient.get(i as f32 / chunks_len as f32);
                             gen_effect_function(chunk, |pos, len, old_c: Rgb| {
-                                let mut c = double_rainbow_gradient.get(pos);
+                                let mut c = rainbow_gradient.get(
+                                    ((i as f32 / chunks_len as f32) + (pos / chunks_len as f32) +
+                                         counter) %
+                                        1.0,
+                                );
+                                //let mut c = c;
+                                //let mut c = Hsv::new(RgbHue::from(0.0), 1.0, 1.0);
                                 //c.value *= distr.density(pos as f64) as f32 *
                                 //    (color.value.powf(0.5));
                                 //c.value *=
@@ -346,22 +361,26 @@ fn run() -> Result<()> {
                                 //        2.0 *
                                 //        (color.value.powf(0.5));
                                 let cos_curve = (PI * 2.0 * (pos - 0.5)).cos() * 0.5 + 0.5;
-                                let scale = (cos_curve - (color.value)) * (1.0 - color.value);
+                                let scale = (cos_curve - (1.0 - color.value)) *
+                                    (1.0 - color.value) *
+                                    1.5 + 0.1;
                                 c.value *= scale.max(0.0);
-                                println!(
-                                    "color.value: {}, pos: {}, cos_curve: {}, scale: {}, c.value: {}",
-                                    color.value,
-                                    pos,
-                                    cos_curve,
-                                    scale.max(0.0),
-                                    c.value
-                                );
+                                c.value = c.value.max((1.0 - (pos * 2.0 - 1.0).abs()) * 0.04);
+                                //println!(
+                                //    "color.value: {}, pos: {}, cos_curve: {}, scale: {}, c.value: {}",
+                                //    color.value,
+                                //    pos,
+                                //    cos_curve,
+                                //    scale.max(0.0),
+                                //    c.value
+                                //);
                                 c
                             })
                         }
                         _ => unimplemented!(),
                     };
                 }
+                counter = (counter + 0.01 * (color.value.sqrt().sqrt())) % 1.0;
                 ledserver.store(pixels.clone().into_iter().map(|p| p.to_pixel()).collect());
 
                 count = (count + 1) % last_points.len();
