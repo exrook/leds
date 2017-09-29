@@ -1,0 +1,13 @@
+[package]
+name = "led_server"
+version = "0.1.0"
+authors = ["Jacob Hughes <j@jacobhughes.me>"]
+
+[dependencies]
+rocket = "^0.3.2"
+rocket_codegen = "^0.3.2"
+tokio-core = "0.1"
+lednet = {path = "../lednet"}
+led_control = {path = "../led_control", features = ["palette-traits"]}
+error-chain = "0.11"
+palette = "0.2"

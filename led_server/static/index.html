@@ -1,0 +1,20 @@
+<html>
+	<head><title>SET DEM LEDS BOIII</title>
+		<script src="spectrum.js"></script>
+		<link rel="stylesheet" href="spectrum.css" />
+	</head>
+	<body>
+		<!--<form action="/set" method="post" target="hidden">
+			<input name="r" type="range" min="0" max="1" step="any">
+			<input name="g" type="range" min="0" max="1" step="any">
+			<input name="b" type="range" min="0" max="1" step="any">
+			<input type="submit">
+		</form> -->
+		<form id="colorForm" action="set_color" method="post" target="hidden">
+			<input name="color" type="color" style="width: 100vw; height: 50vh;" oninput='document.getElementById("colorForm").submit()'>
+			<br>
+			<input type="submit" style="width: 90vw; height: 50vh">
+		</form>
+		<iframe name="hidden" style="width: 0; height: 0; border: 0"></iframe>
+	</body>
+</html>
