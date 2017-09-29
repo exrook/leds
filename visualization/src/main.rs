@@ -5,6 +5,7 @@ extern crate gfx_window_glutin;
 extern crate glutin;
 extern crate rand;
 extern crate image;
+extern crate nalgebra;
 
 extern crate tokio_core;
 #[macro_use]
@@ -22,14 +23,18 @@ use std::time::Duration;
 
 use gfx::traits::FactoryExt;
 use gfx::Device;
+use gfx::state::{Depth, Comparison};
 
 use glutin::{ElementState, MouseButton};
+
+use nalgebra::{Matrix4, Vector3, Point3};
 
 use tokio_core::reactor::Core;
 use crossbeam::Scope;
 
 use led_control::Pixel;
 use palette::pixel::RgbPixel;
+use palette::{Rgb, Hsv};
 use lednet::LedServer;
 
 mod errors {
@@ -50,7 +55,12 @@ gfx_defines! {
 
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
+        transform: gfx::Global<[[f32; 4]; 4]> = "u_Proj",
         out: gfx::RenderTarget<ColorFormat> = "Target0",
+        out_depth: gfx::DepthTarget<DepthFormat> = Depth {
+            fun: Comparison::LessEqual,
+            write: true
+        },
     }
 }
 
@@ -113,12 +123,35 @@ fn run(scope: &Scope) -> Result<()> {
     let (verticies, indicies) = led_strip.get_verticies_indicies();
     let (vertex_buffer, mut slice) =
         factory.create_vertex_buffer_with_slice(&verticies, &*indicies);
-    let sampler = factory.create_sampler_linear();
+
+    let proj_mat = Matrix4::new_perspective(1.0, 70.0, 0.1, 100.0);
+    let look_mat = Matrix4::look_at_rh(
+        &Point3::new(0.0, 0.0, 3.0),
+        &Point3::new(0.0, 0.0, 0.0),
+        &Vector3::new(0.0, 1.0, 0.0),
+    );
+    let mut pitch = 0.0;
+    let mut yaw = 0.0;
+    let rot_mat = Matrix4::from_euler_angles(0.0, 0.0, 0.0);
 
     let mut data = pipe::Data {
         vbuf: vertex_buffer,
+        transform: (proj_mat * look_mat).into(),
         out: main_color,
+        out_depth: main_depth,
     };
+
+    let mut mouse_pressed = false;
+    let mut start_mouse = (0, 0);
+    let mut look_offset = (0.0, 0.0);
+
+    #[derive(Clone, Copy)]
+    enum Projection {
+        Flat,
+        Perspective,
+    }
+
+    let mut proj_mode = Projection::Flat;
 
     while running.load(Ordering::Relaxed) {
         led_strip.update(led_server.load());
@@ -136,14 +169,45 @@ fn run(scope: &Scope) -> Result<()> {
             match event {
                 KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape), _) |
                 Closed => running.store(false, Ordering::Release),
+                KeyboardInput(ElementState::Pressed, _, Some(glutin::VirtualKeyCode::Space), _) => {
+                    proj_mode = match proj_mode {
+                        Projection::Flat => Projection::Perspective,
+                        Projection::Perspective => Projection::Flat,
+                    };
+                }
                 Resized(w, h) => {
-                    gfx_window_glutin::update_views(&window, &mut data.out, &mut main_depth);
+                    gfx_window_glutin::update_views(&window, &mut data.out, &mut data.out_depth);
+                }
+                MouseInput(ElementState::Pressed, MouseButton::Right) => mouse_pressed = true,
+                MouseInput(ElementState::Released, MouseButton::Right) => {
+                    mouse_pressed = false;
+                    pitch = pitch + look_offset.1;
+                    yaw = yaw + look_offset.0;
+                    look_offset = (0.0, 0.0)
+                }
+                MouseMoved(x, y) => {
+                    if mouse_pressed {
+                        look_offset = (
+                            (x - start_mouse.0) as f32 * 0.005,
+                            (y - start_mouse.1) as f32 * 0.005,
+                        );
+                    } else {
+                        start_mouse = (x, y)
+                    }
                 }
                 e => println!("{:?}", e), //{} ,
             }
         });
+        let rot_mat = Matrix4::from_euler_angles(pitch + look_offset.1, yaw + look_offset.0, 0.0);
+        match proj_mode {
+            Projection::Perspective => {
+                data.transform = (proj_mat * look_mat * rot_mat).into();
+            }
+            Projection::Flat => data.transform = Matrix4::identity().into(),
+        }
 
         encoder.clear(&data.out, BLACK);
+        encoder.clear_depth(&data.out_depth, 1000.0);
         encoder.draw(&slice, &pso, &data);
         encoder.flush(&mut device);
         window.swap_buffers().unwrap();
@@ -204,35 +268,62 @@ impl LedStrip {
     pub fn get_verticies_indicies(&self) -> (Vec<Vertex>, Vec<u16>) {
         let (mut vs, mut is) = (vec![], vec![]);
         let len = self.pixels.len();
-        for (i, pixel) in self.pixels.iter().enumerate() {
+        for (i, pxs) in self.pixels.windows(2).enumerate() {
+            let p1 = pxs[0];
+            let p2 = pxs[1];
             let (x, y) = (2.0 * (i as f32 / len as f32) - 1.0, 0.0);
             let i = i as u16;
 
             let (hx, hy) = (1.0 / len as f32, 1.0);
-            let color = pixel.to_rgba();
-            let color = [color.0, color.1, color.2];
+            let hsv1: Hsv<f32> = Rgb::from_pixel(&p1).into();
+            let colorL = p1.to_rgba();
+            let colorL = [colorL.0, colorL.1, colorL.2];
+            let hsv2: Hsv<f32> = Rgb::from_pixel(&p2).into();
+            let colorR = p2.to_rgba();
+            let colorR = [colorR.0, colorR.1, colorR.2];
             vs.extend(
                 &[
                     Vertex {
+                        pos: [x + hx, y - hy, hsv1.value],
+                        color: colorR,
+                    },
+                    Vertex {
+                        pos: [x - hx, y - hy, hsv2.value],
+                        color: colorL,
+                    },
+                    Vertex {
+                        pos: [x - hx, y + hy, hsv2.value],
+                        color: colorL,
+                    },
+                    Vertex {
+                        pos: [x + hx, y + hy, hsv1.value],
+                        color: colorR,
+                    },
+                    Vertex {
                         pos: [x + hx, y - hy, 0.0],
-                        color,
+                        color: colorR,
                     },
                     Vertex {
                         pos: [x - hx, y - hy, 0.0],
-                        color,
+                        color: colorL,
                     },
                     Vertex {
                         pos: [x - hx, y + hy, 0.0],
-                        color,
+                        color: colorL,
                     },
                     Vertex {
                         pos: [x + hx, y + hy, 0.0],
-                        color,
+                        color: colorR,
                     },
                 ],
             );
-            let o = 4 * i;
-            is.extend(&[o, o + 1, o + 2, o + 2, o + 3, o]);
+            let o = 8 * i;
+            is.extend(&[o + 0, o + 1, o + 2, o + 2, o + 3, o + 0]);
+            is.extend(&[o + 4, o + 0, o + 3, o + 3, o + 7, o + 4]);
+            is.extend(&[o + 5, o + 1, o + 0, o + 0, o + 4, o + 5]);
+            is.extend(&[o + 6, o + 2, o + 1, o + 1, o + 5, o + 6]);
+            is.extend(&[o + 7, o + 3, o + 2, o + 2, o + 6, o + 7]);
+            is.extend(&[o + 6, o + 5, o + 4, o + 4, o + 7, o + 6]);
         }
         (vs, is)
     }
