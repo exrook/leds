@@ -366,6 +366,7 @@ fn run() -> Result<()> {
                                     1.5 + 0.1;
                                 c.value *= scale.max(0.0);
                                 c.value = c.value.max((1.0 - (pos * 2.0 - 1.0).abs()) * 0.04);
+                                c.value *= 2.0;
                                 //println!(
                                 //    "color.value: {}, pos: {}, cos_curve: {}, scale: {}, c.value: {}",
                                 //    color.value,
